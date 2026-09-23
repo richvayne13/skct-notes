@@ -1,6 +1,6 @@
 /**
  * SKCT Master Error Notes - Single Bundle Script
- * (실행역량 제거, 시험 영역 이름 변경, 세부항목 드래그 순서변경/번호매기기 완전 지원)
+ * (봉봉TV 170제 문제/해설 자동 로드 & 세부유형 매핑 & 드래그 순서변경 지원)
  */
 
 // ==========================================
@@ -16,10 +16,8 @@ const DEFAULT_SKCT_AREAS = [
     bgColor: 'rgba(59, 130, 246, 0.15)',
     description: '지문 독해, 글의 논지 파악, 문맥적 어휘 추론',
     subtypes: [
-      '지문 독해 및 중심 내용 파악',
-      '문단 간 논리적 전개 방식',
-      '세부 사실 일치 / 불일치',
-      '빈칸 추론 및 문맥적 어휘'
+      '1. 출제예상문제',
+      '2. PSAT 기출문제'
     ]
   },
   {
@@ -31,12 +29,12 @@ const DEFAULT_SKCT_AREAS = [
     bgColor: 'rgba(16, 185, 129, 0.15)',
     description: '표, 그래프, 통계 데이터 분석 및 수치 연산',
     subtypes: [
-      '증가율 / 변화율 비교',
-      '비중 / 구성비 산출',
-      '배율 및 지수 분석',
-      '분수 대소 비교 및 가평균',
-      '복합 차트 분석 및 빈칸 추론',
-      '선지 소거 및 핀셋 분석'
+      '1. 자료해석 출제예상',
+      '2. 증가율 / 변화율 비교',
+      '3. 비중 / 구성비 산출',
+      '4. 배율 및 지수 분석',
+      '5. 분수 대소 비교 및 가평균',
+      '6. 복합 차트 분석 및 빈칸 추론'
     ]
   },
   {
@@ -48,13 +46,22 @@ const DEFAULT_SKCT_AREAS = [
     bgColor: 'rgba(249, 115, 22, 0.15)',
     description: '방정식, 부등식, 수리적 문제 해결 및 응용 수리',
     subtypes: [
-      '거속시 (거리·속력·시간)',
-      '농도 및 소금물 섞기',
-      '일률 (작업량 및 기간)',
-      '원가·정가·할인율·이익률',
-      '경우의 수 및 확률',
-      '정수론 (배수, 약수, 나머지)',
-      '도형 응용 및 기타 수리'
+      '1. 소금물 문제',
+      '2. 일의 양 문제',
+      '3. 거속시 문제',
+      '4. 부등식 문제',
+      '5. 비율 문제',
+      '6. 응용수리 실전문제',
+      '7. 경우의 수 기초',
+      '8. 이웃 / 위치고정',
+      '9. 정수의 개수',
+      '10. 중복순열',
+      '11. 같은것이 있는 순열',
+      '12. 원순열',
+      '13. 조합(콤비네이션)',
+      '14. 중복조합',
+      '15. 팀 구성',
+      '16. 조건부 확률'
     ]
   },
   {
@@ -66,12 +73,9 @@ const DEFAULT_SKCT_AREAS = [
     bgColor: 'rgba(236, 72, 153, 0.15)',
     description: '명제 논리, 조건 추리(매칭/배치), 참/거짓 판단',
     subtypes: [
-      '명제추리 (삼단논법, 대우명제)',
-      '조건추리 (속성 매칭)',
-      '조건추리 (순서 나열 및 랭킹)',
-      '조건추리 (좌석 및 위치 배치)',
-      '진실게임 (참/거짓 진술 모순)',
-      '논리적 오류 및 타당성 평가'
+      '1. 명제추리',
+      '2. 조건퀴즈',
+      '3. 실전모의'
     ]
   },
   {
@@ -83,17 +87,15 @@ const DEFAULT_SKCT_AREAS = [
     bgColor: 'rgba(6, 182, 212, 0.15)',
     description: '숫자 및 기호의 규칙 발견 및 빈칸 수치 추론',
     subtypes: [
-      '등차 / 등비수열',
-      '계차수열 (차이값의 규칙)',
-      '군수열 (묶음 단위 규칙)',
-      '피보나치 / 누적 연산 수열',
-      '건너뛰기 / 교대 수열',
-      '분수 / 거듭제곱 / 특수 수열'
+      '1. 수열 및 도형 규칙',
+      '2. 등차 / 등비수열',
+      '3. 계차수열 (차이의 규칙)',
+      '4. 군수열 및 교대수열'
     ]
   }
 ];
 
-const STORAGE_KEY = 'skct_custom_areas_v2';
+const STORAGE_KEY = 'skct_custom_areas_v3';
 
 function getCustomAreas() {
   try {
@@ -790,6 +792,7 @@ class SKCTApp {
       this.render();
     });
 
+    // 170문항 자동 시딩 로드
     await this.seedInitialDataIfEmpty();
     await this.render();
   }
@@ -841,6 +844,14 @@ class SKCTApp {
       });
     }
 
+    // 봉봉TV 170제 동기화 버튼
+    const btnLoadBongbong = document.getElementById('btnLoadBongbongData');
+    if (btnLoadBongbong) {
+      btnLoadBongbong.addEventListener('click', async () => {
+        await this.syncBongbongQuestions(true);
+      });
+    }
+
     this.btnOpenQuestionModal.addEventListener('click', () => this.openQuestionModal());
     this.btnOpenNoteModal.addEventListener('click', () => this.openNoteModal());
 
@@ -861,6 +872,29 @@ class SKCTApp {
     if (fileImportInput) {
       fileImportInput.addEventListener('change', (e) => this.handleImportFile(e));
     }
+  }
+
+  async syncBongbongQuestions(confirmUser = false) {
+    const seed = window.SEED_QUESTIONS;
+    if (!seed || seed.length === 0) {
+      this.clipboardMgr.showToast('시드 데이터 파일(questions_seed.js)을 불러올 수 없습니다.', 'warning');
+      return;
+    }
+
+    if (confirmUser) {
+      if (!confirm(`봉봉TV 온라인 SKCT 문제집 170문항 전체(문제 및 해설)를 오답노트에 반영하시겠습니까?`)) {
+        return;
+      }
+    }
+
+    this.clipboardMgr.showToast(`⏳ 170개 문항을 등록하는 중입니다...`, 'info');
+
+    for (const q of seed) {
+      await dbService.saveQuestion(q);
+    }
+
+    this.clipboardMgr.showToast(`🎉 봉봉TV 170문항(문제·해설) 반영 완료!`, 'success');
+    await this.render();
   }
 
   initTheme() {
@@ -924,9 +958,9 @@ class SKCTApp {
               <button class="subtype-item ${this.currentSubtype === 'all' && isSelected ? 'active' : ''}" data-subtype="all">
                 • 전체 세부유형
               </button>
-              ${area.subtypes.map((st, idx) => `
+              ${area.subtypes.map(st => `
                 <button class="subtype-item ${this.currentSubtype === st && isSelected ? 'active' : ''}" data-subtype="${this.escapeHtml(st)}">
-                  <span class="sub-num">${idx + 1}.</span> ${this.escapeHtml(st)}
+                  • ${this.escapeHtml(st)}
                 </button>
               `).join('')}
             </div>
@@ -964,7 +998,6 @@ class SKCTApp {
     this.render();
   }
 
-  // --- 영역 및 세부항목 관리 모달 ---
   initManageAreasModal() {
     this.btnManageAreas = document.getElementById('btnManageAreas');
     this.manageAreasModal = document.getElementById('manageAreasModal');
@@ -1064,7 +1097,8 @@ class SKCTApp {
     this.manageAreasList.querySelectorAll('.btn-add-subtype').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const aIdx = parseInt(e.currentTarget.dataset.areaIdx, 10);
-        this.manageAreasData[aIdx].subtypes.push('새 세부유형');
+        const newNum = (this.manageAreasData[aIdx].subtypes.length + 1);
+        this.manageAreasData[aIdx].subtypes.push(`${newNum}. 새 세부유형`);
         this.renderManageAreasList();
       });
     });
@@ -1198,14 +1232,14 @@ class SKCTApp {
         <div class="empty-state">
           <div class="empty-icon">🎯</div>
           <h3>등록된 오답 문제가 없습니다</h3>
-          <p>화면 캡처 후 <strong>Ctrl + V</strong>로 문제, 풀이, 답을 빠르게 등록해 보세요!</p>
+          <p>상단의 <strong>[📚 봉봉TV 170제 동기화]</strong> 버튼을 누르거나, <strong>Ctrl + V</strong>로 새 문제를 등록해 보세요!</p>
           <button class="btn btn-primary btn-add-q-inline">
-            <span class="btn-icon">➕</span> 새 오답 문제 등록하기
+            <span class="btn-icon">📚</span> 봉봉TV 170문항 불러오기
           </button>
         </div>
       `;
       const btn = this.questionsGridEl.querySelector('.btn-add-q-inline');
-      if (btn) btn.addEventListener('click', () => this.openQuestionModal());
+      if (btn) btn.addEventListener('click', () => this.syncBongbongQuestions(true));
       return;
     }
 
@@ -1297,20 +1331,11 @@ class SKCTApp {
           <div class="secret-content">
             <div class="card-section card-solution-section">
               <div class="section-label">
-                <span class="label-badge badge-s">풀이과정</span>
+                <span class="label-badge badge-s">풀이 및 정답</span>
                 <button class="btn-mini-hide btn-toggle-blur" title="다시 가리기">🔒 다시 가리기</button>
               </div>
               <div class="img-container solution-img-box">
-                ${q.solutionImg ? `<img src="${q.solutionImg}" alt="풀이" loading="lazy">` : '<div class="no-img">풀이 이미지 없음 (하단 메모 참조)</div>'}
-              </div>
-            </div>
-
-            <div class="card-section card-answer-section">
-              <div class="section-label">
-                <span class="label-badge badge-a">정답</span>
-              </div>
-              <div class="img-container answer-img-box">
-                ${q.answerImg ? `<img src="${q.answerImg}" alt="정답" loading="lazy">` : '<div class="no-img">정답 이미지 없음</div>'}
+                ${q.solutionImg ? `<img src="${q.solutionImg}" alt="해설" loading="lazy">` : '<div class="no-img">해설 이미지 없음</div>'}
               </div>
             </div>
           </div>
@@ -1383,7 +1408,7 @@ class SKCTApp {
       this.selectModalSubtype.disabled = false;
       this.selectModalSubtype.innerHTML = `
         <option value="">세부유형 선택 (권장)</option>
-        ${subtypes.map((s, idx) => `<option value="${this.escapeHtml(s)}">${idx + 1}. ${this.escapeHtml(s)}</option>`).join('')}
+        ${subtypes.map(s => `<option value="${this.escapeHtml(s)}">${this.escapeHtml(s)}</option>`).join('')}
       `;
     }
   }
@@ -1525,7 +1550,7 @@ class SKCTApp {
     const updateSubtypes = () => {
       const subtypes = getAllSubtypesForArea(noteAreaSelect.value);
       noteSubtypeSelect.innerHTML = `<option value="">세부유형 선택 (권장)</option>` + 
-        subtypes.map((s, idx) => `<option value="${this.escapeHtml(s)}">${idx + 1}. ${this.escapeHtml(s)}</option>`).join('');
+        subtypes.map(s => `<option value="${this.escapeHtml(s)}">${this.escapeHtml(s)}</option>`).join('');
     };
 
     noteAreaSelect.onchange = updateSubtypes;
@@ -1638,38 +1663,35 @@ class SKCTApp {
     const existing = await dbService.getAllQuestions();
     const existingNotes = await dbService.getAllNotes();
 
-    if (existing.length === 0 && existingNotes.length === 0) {
+    // 1. 봉봉TV 170제 시드 자동 적재 (문제가 아직 없거나 3개 미만인 경우)
+    if (existing.length < 10 && window.SEED_QUESTIONS && window.SEED_QUESTIONS.length > 0) {
+      for (const q of window.SEED_QUESTIONS) {
+        await dbService.saveQuestion(q);
+      }
+    }
+
+    // 2. 줄글 공식 메모장 초기 시드
+    if (existingNotes.length === 0) {
       await dbService.saveNote({
         id: 'note_sample_1',
         area: 'math',
-        subtype: '거속시 (거리·속력·시간)',
-        title: '거속시 마주보고 달릴 때 & 같은 방향 추월 공식',
-        content: `1. **서로 마주보고 달릴 때**: 두 사람의 속력 합으로 계산\n   - 만나는 시간 = 전체 거리 / (속력A + 속력B)\n2. **같은 방향으로 추월할 때**: 두 사람의 속력 차로 계산\n   - 추월 시간 = 앞선 거리 / (빠른속력 - 느린속력)\n3. **열차와 터널 통과 문제**: 이동 거리 = (터널 길이 + 열차 길이)`,
-        tips: '단위 일치 필수! (km/h를 m/s로 바꿀 때는 18분의 5 곱하기)',
-        tags: ['거속시', '필수공식', '시간단축'],
+        subtype: '1. 소금물 문제',
+        title: '소금물 농도 & 가중평균 지렛대 공식',
+        content: `1. **가중평균 지렛대 공식**:\n   - 섞인 농도는 두 소금물 농도의 거리 비와 질량비의 역수 관계!\n   - (소금물A 질량) : (소금물B 질량) = (섞인농도 - B농도) : (A농도 - 섞인농도)\n2. **물 증발/추가 시**:\n   - 물의 농도는 0%\n   - 소금 추가 시 소금의 농도는 100%로 계산`,
+        tips: '복잡한 방정식 세우지 말고 시소(지렛대) 비율로 풀면 20초 단축!',
+        tags: ['소금물', '지렛대공식', '창의수리'],
         createdAt: Date.now() - 3600000 * 2
       });
 
       await dbService.saveNote({
         id: 'note_sample_2',
-        area: 'data',
-        subtype: '증가율 / 변화율 비교',
-        title: '자료해석 분수 대소 비교 및 증가율 어림산 스킬',
-        content: `1. **자릿수 줄이기**: 분모와 분자를 앞 2~3자리 유효숫자만 남기고 과감히 절삭\n2. **차이법 활용**: 두 분수의 분자 차와 분모 차로 만든 새로운 분수를 기준 분수와 비교\n3. **증가율 공식**: (금년 - 전년) / 전년\n   - 분모가 커지는 비율보다 분자가 커지는 비율이 크면 전체 분수값은 상승함`,
-        tips: '모든 숫자를 정밀하게 나누려 하지 말고, 선지(보기) 간의 격차를 먼저 확인할 것!',
-        tags: ['자료해석', '어림산', '분수비교'],
+        area: 'math',
+        subtype: '3. 거속시 문제',
+        title: '거속시 마주보고 달릴 때 & 터널 통과 공식',
+        content: `1. **마주보고 달릴 때**: 만나는 시간 = 거리 / (속력합)\n2. **같은 방향 추월 시**: 추월 시간 = 거리 / (속력차)\n3. **열차와 터널 통과**: 이동 거리 = (터널 길이 + 열차 길이)`,
+        tips: '시속(km/h)과 분속, 초속(m/s) 단위 일치 필수 (x 5/18)',
+        tags: ['거속시', '필수공식'],
         createdAt: Date.now() - 3600000 * 5
-      });
-
-      await dbService.saveNote({
-        id: 'note_sample_3',
-        area: 'logic',
-        subtype: '명제추리 (삼단논법, 대우명제)',
-        title: '명제추리 삼단논법 공식과 벤다이어그램 판별',
-        content: `1. **대우 명제**: P -> Q 이면 ~Q -> ~P (항상 참)\n2. **어떤(Some)의 규칙**: 어떤 A는 B이다 = 어떤 B는 A이다 (단순 역 성립)\n3. **모든(All)의 부정**: '어떤 ~이 아니다'\n4. **삼단논법 결론 도출**: 전제 1(P->Q) + 전제 2(Q->R) = 결론(P->R)`,
-        tips: '부정 진술이 나오면 대우를 취해 긍정문으로 바꾼 뒤 화살표 연결망을 그릴 것!',
-        tags: ['명제추리', '삼단논법', '언어추리'],
-        createdAt: Date.now() - 3600000 * 8
       });
     }
   }

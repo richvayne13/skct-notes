@@ -1,6 +1,6 @@
 /**
  * SKCT 인적성 시험 5대 영역 및 수리/추리 세부 유형 정의
- * (실행역량 제거, 사용자 맞춤 이름 변경 및 순서 변경/드래그 지원)
+ * (봉봉TV 온라인 SKCT 문제집 완벽 매핑 체계)
  */
 
 export const DEFAULT_SKCT_AREAS = [
@@ -13,10 +13,8 @@ export const DEFAULT_SKCT_AREAS = [
     bgColor: 'rgba(59, 130, 246, 0.15)',
     description: '지문 독해, 글의 논지 파악, 문맥적 어휘 추론',
     subtypes: [
-      '지문 독해 및 중심 내용 파악',
-      '문단 간 논리적 전개 방식',
-      '세부 사실 일치 / 불일치',
-      '빈칸 추론 및 문맥적 어휘'
+      '1. 출제예상문제',
+      '2. PSAT 기출문제'
     ]
   },
   {
@@ -28,12 +26,12 @@ export const DEFAULT_SKCT_AREAS = [
     bgColor: 'rgba(16, 185, 129, 0.15)',
     description: '표, 그래프, 통계 데이터 분석 및 수치 연산',
     subtypes: [
-      '증가율 / 변화율 비교',
-      '비중 / 구성비 산출',
-      '배율 및 지수 분석',
-      '분수 대소 비교 및 가평균',
-      '복합 차트 분석 및 빈칸 추론',
-      '선지 소거 및 핀셋 분석'
+      '1. 자료해석 출제예상',
+      '2. 증가율 / 변화율 비교',
+      '3. 비중 / 구성비 산출',
+      '4. 배율 및 지수 분석',
+      '5. 분수 대소 비교 및 가평균',
+      '6. 복합 차트 분석 및 빈칸 추론'
     ]
   },
   {
@@ -45,13 +43,22 @@ export const DEFAULT_SKCT_AREAS = [
     bgColor: 'rgba(249, 115, 22, 0.15)',
     description: '방정식, 부등식, 수리적 문제 해결 및 응용 수리',
     subtypes: [
-      '거속시 (거리·속력·시간)',
-      '농도 및 소금물 섞기',
-      '일률 (작업량 및 기간)',
-      '원가·정가·할인율·이익률',
-      '경우의 수 및 확률',
-      '정수론 (배수, 약수, 나머지)',
-      '도형 응용 및 기타 수리'
+      '1. 소금물 문제',
+      '2. 일의 양 문제',
+      '3. 거속시 문제',
+      '4. 부등식 문제',
+      '5. 비율 문제',
+      '6. 응용수리 실전문제',
+      '7. 경우의 수 기초',
+      '8. 이웃 / 위치고정',
+      '9. 정수의 개수',
+      '10. 중복순열',
+      '11. 같은것이 있는 순열',
+      '12. 원순열',
+      '13. 조합(콤비네이션)',
+      '14. 중복조합',
+      '15. 팀 구성',
+      '16. 조건부 확률'
     ]
   },
   {
@@ -63,12 +70,9 @@ export const DEFAULT_SKCT_AREAS = [
     bgColor: 'rgba(236, 72, 153, 0.15)',
     description: '명제 논리, 조건 추리(매칭/배치), 참/거짓 판단',
     subtypes: [
-      '명제추리 (삼단논법, 대우명제)',
-      '조건추리 (속성 매칭)',
-      '조건추리 (순서 나열 및 랭킹)',
-      '조건추리 (좌석 및 위치 배치)',
-      '진실게임 (참/거짓 진술 모순)',
-      '논리적 오류 및 타당성 평가'
+      '1. 명제추리',
+      '2. 조건퀴즈',
+      '3. 실전모의'
     ]
   },
   {
@@ -80,26 +84,22 @@ export const DEFAULT_SKCT_AREAS = [
     bgColor: 'rgba(6, 182, 212, 0.15)',
     description: '숫자 및 기호의 규칙 발견 및 빈칸 수치 추론',
     subtypes: [
-      '등차 / 등비수열',
-      '계차수열 (차이값의 규칙)',
-      '군수열 (묶음 단위 규칙)',
-      '피보나치 / 누적 연산 수열',
-      '건너뛰기 / 교대 수열',
-      '분수 / 거듭제곱 / 특수 수열'
+      '1. 수열 및 도형 규칙',
+      '2. 등차 / 등비수열',
+      '3. 계차수열 (차이의 규칙)',
+      '4. 군수열 및 교대수열'
     ]
   }
 ];
 
-const STORAGE_KEY = 'skct_custom_areas_v2';
+const STORAGE_KEY = 'skct_custom_areas_v3';
 
 export function getCustomAreas() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      // 'execution' 영역이 저장되어 있다면 제거
-      const cleaned = parsed.filter(a => a.id !== 'execution');
-      return cleaned;
+      return parsed.filter(a => a.id !== 'execution');
     }
   } catch (e) {
     console.warn('Failed to parse custom areas:', e);

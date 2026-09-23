@@ -104,6 +104,11 @@
         </div>
 
         <div class="top-bar-right">
+          <!-- 봉봉TV 170문항 일괄 동기화 버튼 -->
+          <button id="btnLoadBongbongData" class="btn btn-glass" title="context PDF에서 추출한 170개 전체 문제를 오답노트에 불러옵니다">
+            <span class="icon">📚</span> 봉봉TV 170제 동기화
+          </button>
+
           <!-- 마스터 블러 토글 -->
           <button id="toggleMasterBlurBtn" class="btn btn-glass" title="모든 카드의 풀이/답을 한 번에 숨기거나 표시합니다">
             <span class="icon">🔒</span> 전체 풀이/답 숨김
@@ -500,7 +505,8 @@ git push -u origin main</pre>
     </div>
   </div>
 
-  <!-- JavaScript 번들 로드 (file:// 및 웹 서버 완벽 지원) -->
+  <!-- 봉봉TV 170제 시드 데이터 & JavaScript 번들 로드 -->
+  <script src="data/questions_seed.js"></script>
   <script src="js/bundle.js"></script>
 </body>
 </html>
