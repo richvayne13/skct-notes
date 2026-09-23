@@ -114,6 +114,12 @@
             <span class="icon">🔒</span> 전체 풀이/답 숨김
           </button>
 
+          <!-- 대량 일괄 등록 버튼 (문제 한꺼번에 올리기) -->
+          <button id="btnOpenBatchModal" class="btn btn-glass" style="color: #F59E0B; border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.1);" title="여러 이미지 파일을 선택하거나 연속 캡처로 문제를 한꺼번에 대량 등록합니다">
+            <span class="btn-icon">📦</span>
+            <span>문제 한꺼번에 올리기</span>
+          </button>
+
           <!-- 문제 등록 버튼 (Ctrl+V 마법사) -->
           <button id="btnOpenQuestionModal" class="btn btn-vivid-gradient">
             <span class="btn-icon">📷</span>
@@ -532,8 +538,124 @@ git push -u origin main</pre>
     </div>
   </div>
 
+  <!-- F. 문제 한꺼번에 올리기 (스마트 대량 일괄 등록 스튜디오) -->
+  <div id="batchModal" class="modal-backdrop">
+    <div class="modal-card modal-xl glass-panel">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-tag" style="background: rgba(245, 158, 11, 0.2); color: #F59E0B;">BATCH IMPORT STUDIO</div>
+          <h3>📦 문제 한꺼번에 올리기 (대량 등록 스튜디오)</h3>
+        </div>
+        <button id="btnCloseBatchModal" class="modal-close-btn">&times;</button>
+      </div>
+
+      <div class="modal-body batch-modal-body">
+        <!-- 1. 상단 공통 일괄 설정 바 -->
+        <div class="batch-global-bar glass-panel">
+          <div class="batch-bar-title">⚡ 일괄 기본값 설정:</div>
+          <div class="batch-bar-inputs">
+            <select id="batchGlobalArea" class="select-filter" style="min-width: 150px;"></select>
+            <select id="batchGlobalSubtype" class="select-filter" style="min-width: 170px;"></select>
+            <input type="text" id="batchGlobalTags" class="form-control" placeholder="공통 태그 (예: 기출, 1회독)" style="max-width: 170px;">
+            <button id="btnBatchApplyGlobal" type="button" class="btn btn-sm btn-glass" title="현재 선택된 영역/세부유형을 아래 모든 문항에 일괄 적용합니다">
+              ✨ 전체 문항에 일괄 적용
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. 대량 추가 방법 (파일 다중 선택 vs 연속 캡처 붙여넣기) -->
+        <div class="batch-upload-zones">
+          <!-- 2-A: 파일 다중 선택 존 -->
+          <div class="batch-drop-card glass-panel" id="batchDropZone">
+            <div class="drop-icon">📁</div>
+            <h4>이미지 파일 다중 선택 / 드래그</h4>
+            <p>여러 장의 문제 및 해설 이미지를 한 번에 선택하면 <strong>파일명 순서대로 1:1 자동 매칭</strong>됩니다.</p>
+            <div class="drop-action-buttons">
+              <label class="btn btn-sm btn-vivid-gradient file-upload-label">
+                📷 문제 파일들 일괄 선택
+                <input type="file" id="batchQuestionsFileInput" multiple accept="image/*" style="display:none;">
+              </label>
+              <label class="btn btn-sm btn-glass file-upload-label" style="border-color: rgba(16, 185, 129, 0.4); color: #10B981;">
+                📝 해설/답안 파일들 일괄 선택
+                <input type="file" id="batchSolutionsFileInput" multiple accept="image/*" style="display:none;">
+              </label>
+            </div>
+            <div class="drop-hint">💡 팁: 탐색기에서 사진들을 드래그해 놓으셔도 자동 등록됩니다.</div>
+          </div>
+
+          <!-- 2-B: 고속 연속 캡처 존 -->
+          <div class="batch-paste-card glass-panel" id="batchPasteZone" tabindex="0">
+            <div class="paste-zone-header">
+              <div class="drop-icon">⚡</div>
+              <h4>연속 초고속 캡처(Ctrl+V) 존</h4>
+            </div>
+            <p>이 영역을 클릭한 후 화면 캡처(Win+Shift+S)하여 <strong>Ctrl + V</strong>를 누르면 문항이 <strong>연속으로 착착 추가</strong>됩니다!</p>
+            <div class="paste-mode-radios">
+              <label class="radio-label">
+                <input type="radio" name="batchPasteMode" value="questionOnly" checked>
+                <span>📷 문제만 연속 추가</span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="batchPasteMode" value="alternate">
+                <span>🔄 [문제 ➡️ 풀이] 번갈아 추가</span>
+              </label>
+            </div>
+            <div class="paste-zone-focus-indicator">
+              <span>👉 <strong>클릭하여 캡처 붙여넣기 대기 상태 활성화</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. 등록 대기 문항 리스트 헤더 -->
+        <div class="batch-list-header">
+          <div class="batch-list-title">
+            <span>📋 등록 예정 문항 목록 (<strong id="batchListCount">0</strong>문항)</span>
+          </div>
+          <div class="batch-list-actions">
+            <button id="btnBatchAddEmptyRow" type="button" class="btn btn-sm btn-glass">
+              + 빈 문항 행 추가
+            </button>
+            <button id="btnBatchClearAll" type="button" class="btn btn-sm btn-glass" style="color:#EF4444;">
+              🗑️ 전체 비우기
+            </button>
+          </div>
+        </div>
+
+        <!-- 문항 리스트 테이블 / 그리드 -->
+        <div id="batchItemsContainer" class="batch-items-container">
+          <div class="batch-empty-placeholder">
+            <div class="placeholder-icon">📦</div>
+            <div class="placeholder-title">등록 대기 중인 문항이 없습니다.</div>
+            <p>위의 <strong>[📷 문제 파일들 일괄 선택]</strong> 버튼을 누르거나, 오른쪽 영역을 클릭하고 <strong>Ctrl + V</strong>로 연속 캡처해 보세요!</p>
+          </div>
+        </div>
+
+        <!-- 저장 진행률 프로그레스 바 (저장 중일 때 표시) -->
+        <div id="batchProgressWrapper" class="batch-progress-wrapper" style="display:none;">
+          <div class="progress-info">
+            <span id="batchProgressText">문항 저장 중...</span>
+            <span id="batchProgressPercent">0%</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div id="batchProgressBar" class="progress-bar-fill" style="width: 0%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="justify-content: space-between;">
+        <button id="btnCancelBatchModal" class="btn btn-glass">
+          닫기
+        </button>
+        <button id="btnSaveBatchQuestions" class="btn btn-vivid-gradient btn-lg" disabled>
+          <span class="btn-icon">🚀</span>
+          <span id="btnSaveBatchText">0개 문제 한꺼번에 저장하기</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- 봉봉TV 170제 시드 데이터 & JavaScript 번들 로드 (Cache-Busting) -->
-  <script src="data/questions_seed.js?v=20260923_v4_edit_feature"></script>
-  <script src="js/bundle.js?v=20260923_v4_edit_feature"></script>
+  <script src="data/questions_seed.js?v=20260923_v5_batch_feature"></script>
+  <script src="js/bundle.js?v=20260923_v5_batch_feature"></script>
 </body>
 </html>

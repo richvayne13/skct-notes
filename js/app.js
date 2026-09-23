@@ -8,6 +8,7 @@ import { dbService } from './store.js';
 import { ClipboardManager } from './clipboard.js';
 import { NotesManager } from './notes.js';
 import { PracticeTimer } from './timer.js';
+import { BatchUploadManager } from './batch.js';
 
 class SKCTApp {
   constructor() {
@@ -22,6 +23,8 @@ class SKCTApp {
       onImageChange: (slot, dataUrl) => this.checkSaveButtonState()
     });
 
+    this.batchMgr = new BatchUploadManager(this);
+
     this.init();
   }
 
@@ -33,6 +36,7 @@ class SKCTApp {
     this.initDetailModal();
     this.initGitModal();
     this.initManageAreasModal();
+    this.batchMgr.init();
     this.initTheme();
 
     document.addEventListener('areas-updated', () => {

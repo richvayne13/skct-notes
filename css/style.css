@@ -1788,3 +1788,353 @@ body {
   color: #FFF;
 }
 
+/* ==========================================================================
+   Batch Import Studio (문제 한꺼번에 올리기 대량 등록 시스템)
+   ========================================================================== */
+
+.batch-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-height: 75vh;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.batch-global-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 18px;
+  border-radius: var(--radius-md);
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.batch-bar-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #F59E0B;
+}
+
+.batch-bar-inputs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.batch-upload-zones {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 800px) {
+  .batch-upload-zones {
+    grid-template-columns: 1fr;
+  }
+}
+
+.batch-drop-card, .batch-paste-card {
+  padding: 16px 20px;
+  border-radius: var(--radius-md);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1.5px dashed var(--border-glass-bright);
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.batch-drop-card:hover, .batch-drop-card.drag-over {
+  border-color: #10B981;
+  background: rgba(16, 185, 129, 0.06);
+}
+
+.batch-paste-card {
+  cursor: pointer;
+  outline: none;
+}
+
+.batch-paste-card:hover, .batch-paste-card:focus, .batch-paste-card.active {
+  border-color: #3B82F6;
+  background: rgba(59, 130, 246, 0.08);
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.2);
+}
+
+.batch-drop-card h4, .batch-paste-card h4 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.batch-drop-card p, .batch-paste-card p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.drop-action-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.drop-hint {
+  font-size: 0.78rem;
+  color: var(--text-sub);
+}
+
+.paste-mode-radios {
+  display: flex;
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.paste-zone-focus-indicator {
+  font-size: 0.82rem;
+  color: #60A5FA;
+  padding: 4px 10px;
+  background: rgba(59, 130, 246, 0.15);
+  border-radius: 20px;
+}
+
+.batch-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 6px;
+}
+
+.batch-list-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.batch-list-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.batch-items-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 180px;
+}
+
+.batch-empty-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed var(--border-glass);
+  border-radius: var(--radius-md);
+  text-align: center;
+  gap: 8px;
+}
+
+.batch-empty-placeholder .placeholder-icon {
+  font-size: 2.2rem;
+  opacity: 0.7;
+}
+
+.batch-empty-placeholder .placeholder-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.batch-empty-placeholder p {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  max-width: 480px;
+  margin: 0;
+}
+
+/* 개별 문항 행 (Batch Item Row) */
+.batch-row {
+  display: grid;
+  grid-template-columns: 46px 140px 140px 1fr 36px;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-glass);
+  transition: all 0.2s ease;
+}
+
+.batch-row:hover {
+  border-color: var(--border-glass-bright);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+@media (max-width: 900px) {
+  .batch-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+.batch-row-index {
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: #F59E0B;
+  text-align: center;
+}
+
+.batch-thumb-slot {
+  position: relative;
+  width: 100%;
+  height: 90px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px dashed var(--border-glass-bright);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.batch-thumb-slot:hover {
+  border-color: var(--color-primary);
+}
+
+.batch-thumb-slot img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #0D1117;
+}
+
+.batch-thumb-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.batch-thumb-placeholder span {
+  font-weight: 600;
+}
+
+.batch-thumb-overlay {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 4px;
+  z-index: 2;
+}
+
+.btn-thumb-clear {
+  background: rgba(239, 68, 68, 0.85);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.btn-thumb-clear:hover {
+  background: #EF4444;
+}
+
+.batch-meta-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.batch-meta-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.batch-meta-row select, .batch-meta-row input {
+  font-size: 0.82rem;
+  padding: 6px 10px;
+}
+
+.btn-remove-batch-row {
+  background: transparent;
+  border: none;
+  color: var(--text-sub);
+  font-size: 1.2rem;
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 6px;
+  transition: all 0.15s;
+}
+
+.btn-remove-batch-row:hover {
+  color: #EF4444;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* 진행률 프로그레스 바 */
+.batch-progress-wrapper {
+  margin-top: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-glass);
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #F59E0B;
+}
+
+.progress-bar-bg {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #F59E0B, #10B981);
+  border-radius: 4px;
+  transition: width 0.2s ease;
+}
+
+
