@@ -446,6 +446,15 @@ export class ClipboardManager {
     this.setActiveSlot(slotName);
   }
 
+  loadImages({ question = null, solution = null, answer = null } = {}) {
+    this.slots.question = question;
+    this.slots.solution = solution;
+    this.slots.answer = answer;
+    this.activeSlot = 'question';
+    this.updateSlotUI();
+    this.onImageChange('load', null);
+  }
+
   resetAll() {
     this.slots = {
       question: null,

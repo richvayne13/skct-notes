@@ -790,6 +790,15 @@ class ClipboardManager {
     this.setActiveSlot(slotName);
   }
 
+  loadImages({ question = null, solution = null, answer = null } = {}) {
+    this.slots.question = question;
+    this.slots.solution = solution;
+    this.slots.answer = answer;
+    this.activeSlot = 'question';
+    this.updateSlotUI();
+    this.onImageChange('load', null);
+  }
+
   resetAll() {
     this.slots = {
       question: null,
@@ -1703,6 +1712,13 @@ class SKCTApp {
       });
     });
 
+    this.questionsGridEl.querySelectorAll('.btn-card-edit').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.currentTarget.dataset.id;
+        this.openQuestionModal(id);
+      });
+    });
+
     this.questionsGridEl.querySelectorAll('.btn-card-delete').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         const id = e.currentTarget.dataset.id;
@@ -1754,6 +1770,7 @@ class SKCTApp {
           <div class="card-header-right">
             <span class="card-date">${dateStr}</span>
             <button class="icon-btn btn-open-detail" data-id="${q.id}" title="실전 풀이 모드 (1분 타이머)">⏱️ 실전</button>
+            <button class="icon-btn btn-card-edit" data-id="${q.id}" title="문제 및 답안/풀이 수정">✏️ 수정</button>
             <button class="icon-btn btn-card-delete" data-id="${q.id}" title="삭제">🗑️</button>
           </div>
         </div>
@@ -1892,30 +1909,79 @@ class SKCTApp {
     }
   }
 
-  openQuestionModal() {
+  openQuestionModal(editId = null) {
     this.clipboardMgr.resetAll();
-    this.inputMistakeReason.value = '';
-    this.inputMemo.value = '';
-    this.inputTags.value = '';
+    this.editingQuestionId = editId;
 
-    this.updateModalAreaOptions();
+    const modalTagEl = document.getElementById('questionModalTag');
+    const modalTitleEl = document.getElementById('questionModalTitle');
+    const saveBtn = this.btnSaveQuestion;
 
-    if (this.currentArea && this.currentArea !== 'all') {
-      this.selectModalArea.value = this.currentArea;
-      this.updateModalSubtypeOptions();
-      if (this.currentSubtype && this.currentSubtype !== 'all') {
-        this.selectModalSubtype.value = this.currentSubtype;
-      }
+    if (editId) {
+      // 1. 기존 문제 수정 모드
+      if (modalTagEl) modalTagEl.textContent = 'EDIT QUESTION & SOLUTION';
+      if (modalTitleEl) modalTitleEl.textContent = '✏️ 오답 문제 및 풀이/답안 수정';
+      if (saveBtn) saveBtn.innerHTML = '<span class="btn-icon">💾</span> 수정 사항 저장 완료';
+
+      dbService.getQuestionById(editId).then(q => {
+        if (!q) return;
+
+        this.updateModalAreaOptions();
+        this.selectModalArea.value = q.area || 'math';
+        this.updateModalSubtypeOptions();
+        if (q.subtype) {
+          this.selectModalSubtype.value = q.subtype;
+        }
+
+        this.inputMistakeReason.value = q.mistakeReason || '';
+        this.inputMemo.value = q.memo || '';
+        this.inputTags.value = (q.tags || []).join(', ');
+
+        const qImg = q.questionImg || q.questionImage || null;
+        const sImg = q.solutionImg || q.solutionImage || null;
+        const aImg = q.answerImg || q.answerImage || null;
+
+        // 슬롯에 기존 이미지 로드
+        this.clipboardMgr.loadImages({
+          question: qImg,
+          solution: sImg,
+          answer: aImg
+        });
+
+        this.checkSaveButtonState();
+      });
     } else {
-      this.updateModalSubtypeOptions();
+      // 2. 신규 문제 등록 모드
+      if (modalTagEl) modalTagEl.textContent = 'SMART CLIPBOARD PASTE';
+      if (modalTitleEl) modalTitleEl.textContent = '📷 캡처 이미지 오답 문제 등록';
+      if (saveBtn) saveBtn.innerHTML = '<span class="btn-icon">💾</span> 오답 문제 저장 완료';
+
+      this.inputMistakeReason.value = '';
+      this.inputMemo.value = '';
+      this.inputTags.value = '';
+
+      this.updateModalAreaOptions();
+
+      if (this.currentArea && this.currentArea !== 'all') {
+        this.selectModalArea.value = this.currentArea;
+        this.updateModalSubtypeOptions();
+        if (this.currentSubtype && this.currentSubtype !== 'all') {
+          this.selectModalSubtype.value = this.currentSubtype;
+        }
+      } else {
+        this.updateModalSubtypeOptions();
+      }
+
+      this.clipboardMgr.setActiveSlot('question');
+      this.checkSaveButtonState();
     }
 
     this.questionModal.classList.add('active');
-    this.clipboardMgr.setActiveSlot('question');
   }
 
   closeQuestionModal() {
     this.questionModal.classList.remove('active');
+    this.editingQuestionId = null;
   }
 
   checkSaveButtonState() {
@@ -1926,7 +1992,7 @@ class SKCTApp {
   async saveNewQuestion() {
     try {
       if (!this.clipboardMgr.slots.question) {
-        this.clipboardMgr.showToast('⚠️ 문제 이미지를 최소 1장 붙여넣어 주세요! (Ctrl+V)', 'warning');
+        this.clipboardMgr.showToast('⚠️ 문제 이미지를 최소 1장 등록(Ctrl+V)해 주세요!', 'warning');
         this.clipboardMgr.setActiveSlot('question');
         return;
       }
@@ -1939,30 +2005,51 @@ class SKCTApp {
         .map(t => t.trim().replace(/^#/, ''))
         .filter(t => t.length > 0);
 
+      const isEdit = !!this.editingQuestionId;
+      let existing = null;
+      if (isEdit) {
+        existing = await dbService.getQuestionById(this.editingQuestionId);
+      }
+
+      const savedId = this.editingQuestionId || ('q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5));
+
       const questionData = {
-        id: 'q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        id: savedId,
+        title: existing?.title || undefined,
+        correctAnswer: existing?.correctAnswer || undefined,
         area: this.selectModalArea.value,
         subtype: this.selectModalSubtype.value || '',
         mistakeReason: this.inputMistakeReason.value.trim(),
         memo: this.inputMemo.value.trim(),
         tags: tags,
-        isResolved: false,
+        isResolved: existing ? existing.isResolved : false,
         questionImg: this.clipboardMgr.slots.question,
         solutionImg: this.clipboardMgr.slots.solution,
         answerImg: this.clipboardMgr.slots.answer,
-        createdAt: Date.now()
+        createdAt: existing ? existing.createdAt : Date.now(),
+        updatedAt: Date.now()
       };
 
       await dbService.saveQuestion(questionData);
       this.closeQuestionModal();
-      this.clipboardMgr.showToast('🎉 오답 문제가 성공적으로 등록되었습니다!', 'success');
+
+      if (isEdit) {
+        this.clipboardMgr.showToast('🎉 문제 및 풀이/답안 수정이 완료되었습니다!', 'success');
+        // 실전 모달이 열려있다면 새로고침 반영
+        if (this.detailModal && this.detailModal.classList.contains('active') && this.currentDetailId === savedId) {
+          await this.openDetailModal(savedId);
+        }
+      } else {
+        this.clipboardMgr.showToast('🎉 오답 문제가 성공적으로 등록되었습니다!', 'success');
+      }
+
       await this.render();
     } catch (err) {
       console.error('saveNewQuestion error:', err);
       alert('오답 문제를 저장하는 도중 오류가 발생했습니다: ' + (err.message || err));
     } finally {
       this.btnSaveQuestion.disabled = false;
-      this.btnSaveQuestion.textContent = '💾 오답 문제 저장하기';
+      this.btnSaveQuestion.innerHTML = '<span class="btn-icon">💾</span> ' + (this.editingQuestionId ? '수정 사항 저장 완료' : '오답 문제 저장 완료');
       this.checkSaveButtonState();
     }
   }
@@ -1974,10 +2061,19 @@ class SKCTApp {
     this.btnDetailReveal = document.getElementById('btnDetailReveal');
     this.detailSecretBox = document.getElementById('detailSecretBox');
     this.btnCloseDetailModal = document.getElementById('btnCloseDetailModal');
+    this.btnDetailEdit = document.getElementById('btnDetailEdit');
 
     this.practiceTimer = new PracticeTimer(this.detailTimerDisplay, () => {
       this.clipboardMgr.showToast('⏰ 1분이 경과했습니다! 답을 선택해 보세요.', 'warning');
     });
+
+    if (this.btnDetailEdit) {
+      this.btnDetailEdit.addEventListener('click', () => {
+        if (this.currentDetailId) {
+          this.openQuestionModal(this.currentDetailId);
+        }
+      });
+    }
 
     this.btnDetailTimerToggle.addEventListener('click', () => {
       this.practiceTimer.toggle();
