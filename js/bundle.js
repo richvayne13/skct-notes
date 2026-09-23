@@ -1762,6 +1762,12 @@ class SKCTApp {
       });
     }
 
+    // 복원 문제 불러오기 버튼
+    const btnRestoreQuestions = document.getElementById('btnRestoreQuestions');
+    if (btnRestoreQuestions) {
+      btnRestoreQuestions.addEventListener('click', () => this.restoreRecoveredQuestions(true));
+    }
+
     this.btnOpenQuestionModal.addEventListener('click', () => this.openQuestionModal());
     this.btnOpenNoteModal.addEventListener('click', () => this.openNoteModal());
 
@@ -1782,6 +1788,29 @@ class SKCTApp {
     if (fileImportInput) {
       fileImportInput.addEventListener('change', (e) => this.handleImportFile(e));
     }
+  }
+
+  async restoreRecoveredQuestions(confirmUser = false) {
+    const seed = (typeof window !== 'undefined' && (window.questionsSeedData || window.SEED_QUESTIONS)) || [];
+    if (!seed || seed.length === 0) {
+      this.clipboardMgr.showToast('복원할 시드 데이터가 없습니다.', 'warning');
+      return;
+    }
+
+    if (confirmUser) {
+      if (!confirm(`복원된 문제 ${seed.length}문항을 오답노트에 반영하시겠습니까?`)) {
+        return;
+      }
+    }
+
+    this.clipboardMgr.showToast(`⏳ ${seed.length}개 문항을 복구하는 중입니다...`, 'info');
+
+    for (const q of seed) {
+      await dbService.saveQuestion(q);
+    }
+
+    this.clipboardMgr.showToast(`🎉 복원된 문제 ${seed.length}문항 복구 완료!`, 'success');
+    await this.render();
   }
 
   async syncBongbongQuestions(confirmUser = false) {
@@ -3036,15 +3065,16 @@ class SKCTApp {
   }
 
   async seedInitialDataIfEmpty() {
-    const CLEAN_SLATE_KEY = 'skct_clean_slate_user_fresh_v8';
-    const hasCleaned = localStorage.getItem(CLEAN_SLATE_KEY);
+    const existingQuestions = await dbService.getAllQuestions();
     const existingNotes = await dbService.getAllNotes();
+    const seed = (typeof window !== 'undefined' && (window.questionsSeedData || window.SEED_QUESTIONS)) || [];
 
-    // 사용자의 "문제, 풀이 싹 지워줘 내가 새로 업로드할게" 요청에 따라 기존 문제 전면 초기화
-    if (!hasCleaned) {
-      console.log('사용자 요청: 모든 기존 문제를 깨끗하게 초기화합니다 (Clean Slate).');
-      await dbService.clearQuestions();
-      localStorage.setItem(CLEAN_SLATE_KEY, 'cleared');
+    // 1. 등록된 문제가 0개이고 복원된 시드 문항이 있는 경우 자동으로 안전하게 채움
+    if (existingQuestions.length === 0 && seed.length > 0) {
+      console.log(`[복구] 저장된 문제가 없어 복원된 ${seed.length}개 문항을 자동으로 로드합니다.`);
+      for (const q of seed) {
+        await dbService.saveQuestion(q);
+      }
     }
 
     // 2. 줄글 공식 메모장 초기 시드

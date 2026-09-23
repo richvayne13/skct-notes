@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <!-- CSS Stylesheet (Cache-Busting) -->
-  <link rel="stylesheet" href="css/style.css?v=20260923_v6_reorder_feature">
+  <link rel="stylesheet" href="css/style.css?v=20260923_v7_recovered_questions">
 </head>
 <body>
   <div class="app-container">
@@ -104,6 +104,11 @@
         </div>
 
         <div class="top-bar-right">
+          <!-- 복원된 내 문제 불러오기 버튼 -->
+          <button id="btnRestoreQuestions" class="btn btn-glass" title="소실되었던 등록 문제 11문항을 즉시 다시 복원합니다" style="color: #10B981; border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.1);">
+            <span class="icon">✨</span> 내 문제 복원(11문항)
+          </button>
+
           <!-- 전체 문제 비우기 / 초기화 버튼 -->
           <button id="btnClearAllQuestions" class="btn btn-glass" title="등록된 모든 문제를 삭제하고 깨끗하게 비웁니다" style="color: #EF4444; border-color: rgba(239, 68, 68, 0.3);">
             <span class="icon">🗑️</span> 전체 문제 비우기
@@ -654,8 +659,8 @@ git push -u origin main</pre>
     </div>
   </div>
 
-  <!-- 봉봉TV 170제 시드 데이터 & JavaScript 번들 로드 (Cache-Busting) -->
-  <script src="data/questions_seed.js?v=20260923_v6_reorder_feature"></script>
-  <script src="js/bundle.js?v=20260923_v6_reorder_feature"></script>
+  <!-- 복원된 사용자 문제 시드 데이터 & JavaScript 번들 로드 (Cache-Busting) -->
+  <script src="data/questions_seed.js?v=20260923_v7_recovered_questions"></script>
+  <script src="js/bundle.js?v=20260923_v7_recovered_questions"></script>
 </body>
 </html>
