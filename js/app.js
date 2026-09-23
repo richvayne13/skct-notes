@@ -736,7 +736,10 @@ class SKCTApp {
             ${q.mistakeReason ? `<span class="mistake-badge">실수 요인: ${this.escapeHtml(q.mistakeReason)}</span>` : ''}
           </div>
           <div class="img-container question-img-box">
-            ${qImg ? `<img src="${qImg}" alt="문제" loading="lazy">` : '<div class="no-img">문제 이미지 없음</div>'}
+            ${qImg && qImg.trim() ? `
+              <img src="${qImg}" alt="문제" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="no-img" style="display:none;">⚠️ 이미지 로드 오류</div>
+            ` : '<div class="no-img">문제 이미지 없음</div>'}
           </div>
         </div>
 
@@ -756,8 +759,17 @@ class SKCTApp {
                 <button class="btn-mini-hide btn-toggle-blur" title="다시 가리기">🔒 다시 가리기</button>
               </div>
               <div class="img-container solution-img-box">
-                ${sImg ? `<img src="${sImg}" alt="해설" loading="lazy">` : '<div class="no-img">해설 이미지 없음</div>'}
+                ${sImg && sImg.trim() ? `
+                  <img src="${sImg}" alt="해설" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                  <div class="no-img" style="display:none;">⚠️ 해설 이미지 로드 오류</div>
+                ` : '<div class="no-img">해설 이미지 없음</div>'}
               </div>
+              ${q.answerImg && q.answerImg.trim() ? `
+                <div class="img-container answer-img-box" style="margin-top: 10px;">
+                  <div class="section-label"><span class="label-badge" style="background:#10B981; color:#fff;">정답 이미지</span></div>
+                  <img src="${q.answerImg}" alt="정답" loading="lazy" onerror="this.style.display='none';">
+                </div>
+              ` : ''}
             </div>
           </div>
         </div>
@@ -958,9 +970,52 @@ class SKCTApp {
 
     const titleStr = q.title ? ` • ${this.escapeHtml(q.title)}` : '';
     document.getElementById('detailAreaBadge').innerHTML = `${area.icon} ${this.escapeHtml(area.name)} ${q.subtype ? '• ' + this.escapeHtml(q.subtype) : ''}${titleStr}`;
-    document.getElementById('detailQuestionImg').src = q.questionImg || q.questionImage || '';
-    document.getElementById('detailSolutionImg').src = q.solutionImg || q.solutionImage || '';
-    document.getElementById('detailAnswerImg').src = q.answerImg || '';
+    
+    // 1. 문제 이미지 처리 (엑박 방지)
+    const qImgEl = document.getElementById('detailQuestionImg');
+    const qNoMsg = document.getElementById('detailNoQuestionMsg');
+    const qSrc = q.questionImg || q.questionImage;
+    if (qSrc && qSrc.trim()) {
+      qImgEl.src = qSrc;
+      qImgEl.style.display = 'block';
+      if (qNoMsg) qNoMsg.style.display = 'none';
+    } else {
+      qImgEl.removeAttribute('src');
+      qImgEl.style.display = 'none';
+      if (qNoMsg) qNoMsg.style.display = 'block';
+    }
+
+    // 2. 해설 이미지 처리 (엑박 방지)
+    const sImgEl = document.getElementById('detailSolutionImg');
+    const sBlock = document.getElementById('detailSolutionBlock');
+    const sNoMsg = document.getElementById('detailNoSolutionMsg');
+    const sSrc = q.solutionImg || q.solutionImage;
+    if (sSrc && sSrc.trim()) {
+      sImgEl.src = sSrc;
+      sImgEl.style.display = 'block';
+      if (sNoMsg) sNoMsg.style.display = 'none';
+      if (sBlock) sBlock.style.display = 'block';
+    } else {
+      sImgEl.removeAttribute('src');
+      sImgEl.style.display = 'none';
+      if (sNoMsg) sNoMsg.style.display = 'block';
+    }
+
+    // 3. 정답 이미지 처리 (엑박 방지)
+    const aImgEl = document.getElementById('detailAnswerImg');
+    const aBlock = document.getElementById('detailAnswerBlock');
+    const aNoMsg = document.getElementById('detailNoAnswerMsg');
+    const aSrc = q.answerImg;
+    if (aSrc && aSrc.trim()) {
+      aImgEl.src = aSrc;
+      aImgEl.style.display = 'block';
+      if (aNoMsg) aNoMsg.style.display = 'none';
+      if (aBlock) aBlock.style.display = 'block';
+    } else {
+      aImgEl.removeAttribute('src');
+      aImgEl.style.display = 'none';
+      if (aBlock) aBlock.style.display = 'none';
+    }
     
     let memoText = q.memo ? `💡 핵심 메모: ${q.memo}` : '';
     if (q.correctAnswer) {

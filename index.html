@@ -205,34 +205,46 @@
           <div class="paste-slot slot-active" data-slot="question" tabindex="0">
             <div class="slot-header">
               <span class="slot-title"><span class="slot-number">1</span> 📷 문제 이미지 <span class="required">*</span></span>
-              <button class="btn-clear-slot" title="이미지 삭제" style="display:none;">&times;</button>
+              <button type="button" class="btn-clear-slot" title="이미지 삭제" style="display:none;">&times;</button>
             </div>
             <div class="slot-content">
               <div class="slot-placeholder">
                 <div class="placeholder-icon">📋</div>
-                <div class="placeholder-text">여기를 클릭 후 <strong>Ctrl + V</strong></div>
-                <button type="button" class="btn btn-sm btn-glass btn-paste-clipboard">
-                  클립보드에서 가져오기
-                </button>
+                <div class="placeholder-text">클릭 후 <strong>Ctrl + V</strong> 또는 파일 드래그</div>
+                <div class="slot-action-btns">
+                  <button type="button" class="btn btn-sm btn-glass btn-paste-clipboard">
+                    📋 클립보드 붙여넣기
+                  </button>
+                  <button type="button" class="btn btn-sm btn-glass btn-choose-file">
+                    📂 파일 직접 선택
+                  </button>
+                  <input type="file" class="slot-file-input" accept="image/*" style="display:none;">
+                </div>
               </div>
               <img class="slot-preview" alt="문제 미리보기" style="display:none;">
             </div>
-            <div class="slot-status">현재 활성화: 붙여넣기 대기 중</div>
+            <div class="slot-status">현재 활성화: 붙여넣기/파일선택 대기 중</div>
           </div>
 
           <!-- 슬롯 2: 풀이과정 -->
           <div class="paste-slot" data-slot="solution" tabindex="0">
             <div class="slot-header">
               <span class="slot-title"><span class="slot-number">2</span> 📝 풀이과정 이미지</span>
-              <button class="btn-clear-slot" title="이미지 삭제" style="display:none;">&times;</button>
+              <button type="button" class="btn-clear-slot" title="이미지 삭제" style="display:none;">&times;</button>
             </div>
             <div class="slot-content">
               <div class="slot-placeholder">
                 <div class="placeholder-icon">📐</div>
-                <div class="placeholder-text">여기를 클릭 후 <strong>Ctrl + V</strong></div>
-                <button type="button" class="btn btn-sm btn-glass btn-paste-clipboard">
-                  클립보드에서 가져오기
-                </button>
+                <div class="placeholder-text">클릭 후 <strong>Ctrl + V</strong> 또는 파일 드래그</div>
+                <div class="slot-action-btns">
+                  <button type="button" class="btn btn-sm btn-glass btn-paste-clipboard">
+                    📋 클립보드 붙여넣기
+                  </button>
+                  <button type="button" class="btn btn-sm btn-glass btn-choose-file">
+                    📂 파일 직접 선택
+                  </button>
+                  <input type="file" class="slot-file-input" accept="image/*" style="display:none;">
+                </div>
               </div>
               <img class="slot-preview" alt="풀이 미리보기" style="display:none;">
             </div>
@@ -243,15 +255,21 @@
           <div class="paste-slot" data-slot="answer" tabindex="0">
             <div class="slot-header">
               <span class="slot-title"><span class="slot-number">3</span> 🎯 정답 이미지</span>
-              <button class="btn-clear-slot" title="이미지 삭제" style="display:none;">&times;</button>
+              <button type="button" class="btn-clear-slot" title="이미지 삭제" style="display:none;">&times;</button>
             </div>
             <div class="slot-content">
               <div class="slot-placeholder">
                 <div class="placeholder-icon">✅</div>
-                <div class="placeholder-text">여기를 클릭 후 <strong>Ctrl + V</strong></div>
-                <button type="button" class="btn btn-sm btn-glass btn-paste-clipboard">
-                  클립보드에서 가져오기
-                </button>
+                <div class="placeholder-text">클릭 후 <strong>Ctrl + V</strong> 또는 파일 드래그</div>
+                <div class="slot-action-btns">
+                  <button type="button" class="btn btn-sm btn-glass btn-paste-clipboard">
+                    📋 클립보드 붙여넣기
+                  </button>
+                  <button type="button" class="btn btn-sm btn-glass btn-choose-file">
+                    📂 파일 직접 선택
+                  </button>
+                  <input type="file" class="slot-file-input" accept="image/*" style="display:none;">
+                </div>
               </div>
               <img class="slot-preview" alt="정답 미리보기" style="display:none;">
             </div>
@@ -377,8 +395,9 @@
         <!-- 문제 본문 -->
         <div class="detail-question-panel">
           <div class="detail-label">📋 문제</div>
-          <div class="detail-img-wrapper">
-            <img id="detailQuestionImg" alt="문제 상세">
+          <div id="detailQuestionImgWrapper" class="detail-img-wrapper">
+            <img id="detailQuestionImg" alt="문제 상세" onerror="this.style.display='none'; document.getElementById('detailNoQuestionMsg').style.display='block';">
+            <div id="detailNoQuestionMsg" class="no-img-fallback" style="display:none;">등록된 문제 이미지가 없습니다.</div>
           </div>
           <div id="detailMemo" class="detail-memo-box"></div>
         </div>
@@ -402,17 +421,19 @@
             </div>
 
             <div class="secret-inner">
-              <div class="secret-block">
+              <div id="detailSolutionBlock" class="secret-block">
                 <h4>📝 해설 및 풀이과정</h4>
                 <div class="detail-img-wrapper">
-                  <img id="detailSolutionImg" alt="풀이 상세">
+                  <img id="detailSolutionImg" alt="풀이 상세" onerror="this.style.display='none'; document.getElementById('detailNoSolutionMsg').style.display='block';">
+                  <div id="detailNoSolutionMsg" class="no-img-fallback" style="display:none;">등록된 해설 이미지가 없습니다.</div>
                 </div>
               </div>
 
-              <div class="secret-block">
+              <div id="detailAnswerBlock" class="secret-block">
                 <h4>🎯 정답</h4>
                 <div class="detail-img-wrapper">
-                  <img id="detailAnswerImg" alt="정답 상세">
+                  <img id="detailAnswerImg" alt="정답 상세" onerror="this.style.display='none'; document.getElementById('detailNoAnswerMsg').style.display='block';">
+                  <div id="detailNoAnswerMsg" class="no-img-fallback" style="display:none;">등록된 정답 이미지가 없습니다.</div>
                 </div>
               </div>
             </div>
