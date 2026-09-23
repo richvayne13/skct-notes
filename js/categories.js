@@ -146,3 +146,14 @@ export function getAllSubtypesForArea(areaId) {
   const area = getAreaById(areaId);
   return area ? (area.subtypes || []) : [];
 }
+
+export function cleanSubtypeName(st) {
+  if (!st) return '';
+  return String(st).replace(/^\d+[\.\)\-\s]+\s*/, '').trim();
+}
+
+export function formatSubtypeName(index, rawName) {
+  const clean = cleanSubtypeName(rawName);
+  return clean ? `${index + 1}. ${clean}` : `${index + 1}. 세부유형`;
+}
+

@@ -135,7 +135,7 @@
         <section id="questionsView" class="view-panel">
           <div class="view-header">
             <div class="view-header-title">
-              <h2>문제 오답 피드</h2>
+              <h2 id="questionsViewTitle">문제 오답 피드</h2>
               <span id="questionsCountBadge" class="count-badge">0문항</span>
             </div>
             <div class="view-tip">
@@ -268,7 +268,12 @@
           </div>
 
           <div class="form-group">
-            <label>수리/추리 세부 유형 분류</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label style="margin-bottom: 0;">세부 유형 분류</label>
+              <button type="button" id="btnQuickAddSubtype" class="btn btn-sm btn-glass" style="font-size: 0.75rem; padding: 2px 8px; color: var(--color-primary); border-color: rgba(249, 115, 22, 0.4);">
+                + 새 세부유형 추가
+              </button>
+            </div>
             <select id="modalSubtypeSelect" class="form-control"></select>
           </div>
 
