@@ -1,8 +1,9 @@
 /**
  * SKCT 오답노트 메인 애플리케이션 컨트롤러
+ * (시험영역 제목 변경, 세부항목 이름 수정, 번호 매기기, 위아래 드래그 순서 변경 지원)
  */
 
-import { SKCT_AREAS, getAreaById, getAllSubtypesForArea } from './categories.js';
+import { getAllAreasWithAll, getAreaById, getAllSubtypesForArea, getCustomAreas, saveCustomAreas, resetCustomAreas } from './categories.js';
 import { dbService } from './store.js';
 import { ClipboardManager } from './clipboard.js';
 import { NotesManager } from './notes.js';
@@ -31,7 +32,14 @@ class SKCTApp {
     this.initNotesView();
     this.initDetailModal();
     this.initGitModal();
+    this.initManageAreasModal();
     this.initTheme();
+
+    document.addEventListener('areas-updated', () => {
+      this.renderSidebar();
+      this.updateModalSubtypeOptions();
+      this.render();
+    });
 
     // 초기 샘플 데이터가 없으면 안내용 샘플 데이터 추가
     await this.seedInitialDataIfEmpty();
@@ -162,7 +170,9 @@ class SKCTApp {
   }
 
   renderSidebar() {
-    this.sidebarCategoriesEl.innerHTML = SKCT_AREAS.map(area => {
+    const areas = getAllAreasWithAll();
+
+    this.sidebarCategoriesEl.innerHTML = areas.map(area => {
       const isSelected = this.currentArea === area.id;
       const hasSubtypes = area.subtypes && area.subtypes.length > 0;
       const isExpanded = isSelected && hasSubtypes;
@@ -171,7 +181,7 @@ class SKCTApp {
         <div class="sidebar-category-group ${isSelected ? 'active-group' : ''}">
           <button class="nav-item ${isSelected ? 'active' : ''}" data-area-id="${area.id}">
             <span class="nav-icon">${area.icon}</span>
-            <span class="nav-label">${area.name}</span>
+            <span class="nav-label">${this.escapeHtml(area.name)}</span>
             ${hasSubtypes ? `<span class="nav-arrow ${isExpanded ? 'rotated' : ''}">▾</span>` : ''}
           </button>
 
@@ -180,9 +190,9 @@ class SKCTApp {
               <button class="subtype-item ${this.currentSubtype === 'all' && isSelected ? 'active' : ''}" data-subtype="all">
                 • 전체 세부유형
               </button>
-              ${area.subtypes.map(st => `
+              ${area.subtypes.map((st, idx) => `
                 <button class="subtype-item ${this.currentSubtype === st && isSelected ? 'active' : ''}" data-subtype="${this.escapeHtml(st)}">
-                  • ${this.escapeHtml(st)}
+                  <span class="sub-num">${idx + 1}.</span> ${this.escapeHtml(st)}
                 </button>
               `).join('')}
             </div>
@@ -221,8 +231,182 @@ class SKCTApp {
     this.render();
   }
 
+  // --- 영역 및 세부항목 관리 모달 (이름 변경, 순서 드래그, 추가/삭제, 번호 매김) ---
+  initManageAreasModal() {
+    this.btnManageAreas = document.getElementById('btnManageAreas');
+    this.manageAreasModal = document.getElementById('manageAreasModal');
+    this.manageAreasList = document.getElementById('manageAreasList');
+    this.btnCloseManageModal = document.getElementById('btnCloseManageModal');
+    this.btnResetAreasDefault = document.getElementById('btnResetAreasDefault');
+    this.btnSaveAreasChanges = document.getElementById('btnSaveAreasChanges');
+
+    if (this.btnManageAreas) {
+      this.btnManageAreas.addEventListener('click', () => this.openManageAreasModal());
+    }
+    if (this.btnCloseManageModal) {
+      this.btnCloseManageModal.addEventListener('click', () => {
+        this.manageAreasModal.classList.remove('active');
+      });
+    }
+    if (this.btnResetAreasDefault) {
+      this.btnResetAreasDefault.addEventListener('click', () => {
+        if (confirm('모든 시험 영역과 세부항목을 초기 기본값으로 복원하시겠습니까?')) {
+          resetCustomAreas();
+          this.manageAreasData = getCustomAreas();
+          this.renderManageAreasList();
+          this.clipboardMgr.showToast('🔄 기본값으로 초기화되었습니다.', 'info');
+        }
+      });
+    }
+    if (this.btnSaveAreasChanges) {
+      this.btnSaveAreasChanges.addEventListener('click', () => {
+        this.saveManagedAreas();
+      });
+    }
+  }
+
+  openManageAreasModal() {
+    // 깊은 복사본으로 편집 데이터 로드
+    this.manageAreasData = JSON.parse(JSON.stringify(getCustomAreas()));
+    this.renderManageAreasList();
+    this.manageAreasModal.classList.add('active');
+  }
+
+  renderManageAreasList() {
+    this.manageAreasList.innerHTML = this.manageAreasData.map((area, aIdx) => {
+      const subtypes = area.subtypes || [];
+
+      return `
+        <div class="manage-area-card" data-area-idx="${aIdx}">
+          <div class="manage-area-header">
+            <span class="manage-area-icon">${area.icon}</span>
+            <input type="text" class="manage-area-title-input" value="${this.escapeHtml(area.name)}" placeholder="시험 영역 제목 입력" data-area-idx="${aIdx}">
+          </div>
+
+          <div class="manage-subtype-list" data-area-idx="${aIdx}">
+            ${subtypes.map((st, sIdx) => `
+              <div class="manage-subtype-item draggable" draggable="true" data-area-idx="${aIdx}" data-sub-idx="${sIdx}">
+                <span class="drag-handle" title="위아래로 드래그하여 순서 변경">☰</span>
+                <span class="subtype-number">${sIdx + 1}.</span>
+                <input type="text" class="subtype-input" value="${this.escapeHtml(st)}" placeholder="세부항목 이름" data-area-idx="${aIdx}" data-sub-idx="${sIdx}">
+                <button type="button" class="btn-delete-subtype" data-area-idx="${aIdx}" data-sub-idx="${sIdx}" title="항목 삭제">🗑️</button>
+              </div>
+            `).join('')}
+          </div>
+
+          <button type="button" class="btn-add-subtype" data-area-idx="${aIdx}">
+            + 세부항목 추가
+          </button>
+        </div>
+      `;
+    }).join('');
+
+    this.bindManageDragAndDropEvents();
+  }
+
+  bindManageDragAndDropEvents() {
+    // 1. 영역 제목 변경 이벤트
+    this.manageAreasList.querySelectorAll('.manage-area-title-input').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const aIdx = parseInt(e.target.dataset.areaIdx, 10);
+        this.manageAreasData[aIdx].name = e.target.value.trim();
+      });
+    });
+
+    // 2. 세부항목 이름 변경 이벤트
+    this.manageAreasList.querySelectorAll('.subtype-input').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const aIdx = parseInt(e.target.dataset.areaIdx, 10);
+        const sIdx = parseInt(e.target.dataset.subIdx, 10);
+        this.manageAreasData[aIdx].subtypes[sIdx] = e.target.value;
+      });
+    });
+
+    // 3. 세부항목 삭제 이벤트
+    this.manageAreasList.querySelectorAll('.btn-delete-subtype').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const aIdx = parseInt(e.currentTarget.dataset.areaIdx, 10);
+        const sIdx = parseInt(e.currentTarget.dataset.subIdx, 10);
+        this.manageAreasData[aIdx].subtypes.splice(sIdx, 1);
+        this.renderManageAreasList();
+      });
+    });
+
+    // 4. 세부항목 추가 이벤트
+    this.manageAreasList.querySelectorAll('.btn-add-subtype').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const aIdx = parseInt(e.currentTarget.dataset.areaIdx, 10);
+        this.manageAreasData[aIdx].subtypes.push('새 세부유형');
+        this.renderManageAreasList();
+      });
+    });
+
+    // 5. HTML5 드래그 앤 드롭 순서 변경 (위아래)
+    let draggedItem = null;
+    let draggedAreaIdx = null;
+    let draggedSubIdx = null;
+
+    this.manageAreasList.querySelectorAll('.manage-subtype-item').forEach(item => {
+      item.addEventListener('dragstart', (e) => {
+        draggedItem = item;
+        draggedAreaIdx = parseInt(item.dataset.areaIdx, 10);
+        draggedSubIdx = parseInt(item.dataset.subIdx, 10);
+        item.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+
+      item.addEventListener('dragend', () => {
+        if (draggedItem) {
+          draggedItem.classList.remove('dragging');
+        }
+        this.manageAreasList.querySelectorAll('.manage-subtype-item').forEach(el => el.classList.remove('drag-over'));
+      });
+
+      item.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const targetAreaIdx = parseInt(item.dataset.areaIdx, 10);
+        if (targetAreaIdx === draggedAreaIdx) {
+          item.classList.add('drag-over');
+        }
+      });
+
+      item.addEventListener('dragleave', () => {
+        item.classList.remove('drag-over');
+      });
+
+      item.addEventListener('drop', (e) => {
+        e.preventDefault();
+        item.classList.remove('drag-over');
+
+        const targetAreaIdx = parseInt(item.dataset.areaIdx, 10);
+        const targetSubIdx = parseInt(item.dataset.subIdx, 10);
+
+        // 동일한 영역 내에서만 순서 교환
+        if (draggedAreaIdx === targetAreaIdx && draggedSubIdx !== targetSubIdx) {
+          const list = this.manageAreasData[draggedAreaIdx].subtypes;
+          const [movedItem] = list.splice(draggedSubIdx, 1);
+          list.splice(targetSubIdx, 0, movedItem);
+          this.renderManageAreasList();
+        }
+      });
+    });
+  }
+
+  saveManagedAreas() {
+    // 빈 이름 정리
+    this.manageAreasData.forEach(area => {
+      if (!area.name.trim()) area.name = '시험 영역';
+      area.subtypes = (area.subtypes || []).map(s => s.trim()).filter(s => s.length > 0);
+    });
+
+    saveCustomAreas(this.manageAreasData);
+    this.manageAreasModal.classList.remove('active');
+    this.clipboardMgr.showToast('💾 시험 영역 및 세부항목 설정이 저장되었습니다!', 'success');
+  }
+
   initNotesView() {
-    this.notesMgr = new NotesManager(this.notesContainerEl, (filteredCount, totalCount) => {
+    this.notesMgr = new NotesManager(this.notesContainerEl, (filteredCount) => {
       const countBadge = document.getElementById('notesCountBadge');
       if (countBadge) countBadge.textContent = `${filteredCount}건`;
     });
@@ -362,13 +546,13 @@ class SKCTApp {
               <span class="resolve-text">${q.isResolved ? '복습 완료' : '다시 풀기'}</span>
             </label>
             <span class="badge" style="background:${area.bgColor}; color:${area.color}; border: 1px solid ${area.color}40;">
-              ${area.icon} ${area.shortName}
+              ${area.icon} ${this.escapeHtml(area.shortName || area.name)}
             </span>
             ${q.subtype ? `<span class="badge badge-sub">${this.escapeHtml(q.subtype)}</span>` : ''}
           </div>
           <div class="card-header-right">
             <span class="card-date">${dateStr}</span>
-            <button class="icon-btn btn-open-detail" data-id="${q.id}" title="실전 풀이 모드 (1분 타이머)">⏱️ 실전 모드</button>
+            <button class="icon-btn btn-open-detail" data-id="${q.id}" title="실전 풀이 모드 (1분 타이머)">⏱️ 실전</button>
             <button class="icon-btn btn-card-delete" data-id="${q.id}" title="삭제">🗑️</button>
           </div>
         </div>
@@ -388,7 +572,7 @@ class SKCTApp {
         <div class="card-secret-section">
           <div class="card-blur-overlay">
             <button class="btn btn-reveal btn-toggle-blur">
-              <span class="btn-icon">👁️</span> 정답 & 풀이과정 확인
+              <span class="btn-icon">👁️</span> 정답 &amp; 풀이과정 확인
             </button>
             <span class="blur-hint">문제를 다 푼 뒤 클릭해서 정답을 확인하세요!</span>
           </div>
@@ -401,7 +585,7 @@ class SKCTApp {
                 <button class="btn-mini-hide btn-toggle-blur" title="다시 가리기">🔒 다시 가리기</button>
               </div>
               <div class="img-container solution-img-box">
-                ${q.solutionImg ? `<img src="${q.solutionImg}" alt="풀이" loading="lazy">` : '<div class="no-img">풀이 이미지 없음 (메모 참조)</div>'}
+                ${q.solutionImg ? `<img src="${q.solutionImg}" alt="풀이" loading="lazy">` : '<div class="no-img">풀이 이미지 없음 (하단 메모 참조)</div>'}
               </div>
             </div>
 
@@ -449,11 +633,7 @@ class SKCTApp {
     this.btnSaveQuestion = document.getElementById('btnSaveQuestion');
     this.btnCloseQModal = document.getElementById('btnCloseQModal');
 
-    // 영역 변경 시 세부유형 옵션 갱신
-    this.selectModalArea.innerHTML = SKCT_AREAS
-      .filter(a => a.id !== 'all')
-      .map(a => `<option value="${a.id}">${a.icon} ${a.name}</option>`)
-      .join('');
+    this.updateModalAreaOptions();
 
     this.selectModalArea.addEventListener('change', () => this.updateModalSubtypeOptions());
     this.updateModalSubtypeOptions();
@@ -467,13 +647,18 @@ class SKCTApp {
     this.btnCloseQModal.addEventListener('click', () => this.closeQuestionModal());
     this.btnSaveQuestion.addEventListener('click', () => this.saveNewQuestion());
 
-    // 오답 실수 요인 빠른 선택 배지
     document.querySelectorAll('.btn-quick-reason').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        const reason = e.target.textContent;
-        this.inputMistakeReason.value = reason;
+        this.inputMistakeReason.value = e.target.textContent;
       });
     });
+  }
+
+  updateModalAreaOptions() {
+    const areas = getAllAreasWithAll().filter(a => a.id !== 'all');
+    this.selectModalArea.innerHTML = areas
+      .map(a => `<option value="${a.id}">${a.icon} ${this.escapeHtml(a.name)}</option>`)
+      .join('');
   }
 
   updateModalSubtypeOptions() {
@@ -486,7 +671,7 @@ class SKCTApp {
       this.selectModalSubtype.disabled = false;
       this.selectModalSubtype.innerHTML = `
         <option value="">세부유형 선택 (권장)</option>
-        ${subtypes.map(s => `<option value="${this.escapeHtml(s)}">${this.escapeHtml(s)}</option>`).join('')}
+        ${subtypes.map((s, idx) => `<option value="${this.escapeHtml(s)}">${idx + 1}. ${this.escapeHtml(s)}</option>`).join('')}
       `;
     }
   }
@@ -497,13 +682,16 @@ class SKCTApp {
     this.inputMemo.value = '';
     this.inputTags.value = '';
 
-    // 현재 선택된 사이드바 영역이 있다면 기본 선택
+    this.updateModalAreaOptions();
+
     if (this.currentArea && this.currentArea !== 'all') {
       this.selectModalArea.value = this.currentArea;
       this.updateModalSubtypeOptions();
       if (this.currentSubtype && this.currentSubtype !== 'all') {
         this.selectModalSubtype.value = this.currentSubtype;
       }
+    } else {
+      this.updateModalSubtypeOptions();
     }
 
     this.questionModal.classList.add('active');
@@ -515,7 +703,6 @@ class SKCTApp {
   }
 
   checkSaveButtonState() {
-    // 최소한 문제 이미지가 있거나, 메모가 있으면 저장 활성화
     const hasQuestion = !!this.clipboardMgr.slots.question;
     this.btnSaveQuestion.disabled = !hasQuestion;
   }
@@ -551,7 +738,7 @@ class SKCTApp {
     await this.render();
   }
 
-  // --- 실전 상세 모달 (1분 타이머 내장) ---
+  // --- 실전 상세 모달 (1분 타이머) ---
   initDetailModal() {
     this.detailTimerDisplay = document.getElementById('detailTimerDisplay');
     this.btnDetailTimerToggle = document.getElementById('btnDetailTimerToggle');
@@ -594,17 +781,15 @@ class SKCTApp {
     this.currentDetailId = id;
     const area = getAreaById(q.area);
 
-    document.getElementById('detailAreaBadge').innerHTML = `${area.icon} ${area.name} ${q.subtype ? '• ' + q.subtype : ''}`;
+    document.getElementById('detailAreaBadge').innerHTML = `${area.icon} ${this.escapeHtml(area.name)} ${q.subtype ? '• ' + this.escapeHtml(q.subtype) : ''}`;
     document.getElementById('detailQuestionImg').src = q.questionImg || '';
     document.getElementById('detailSolutionImg').src = q.solutionImg || '';
     document.getElementById('detailAnswerImg').src = q.answerImg || '';
     document.getElementById('detailMemo').textContent = q.memo ? `💡 핵심 메모: ${q.memo}` : '';
 
-    // 풀이/정답 초기 가림
     this.detailSecretBox.classList.remove('revealed');
     this.btnDetailReveal.textContent = '👁️ 정답 & 풀이과정 확인하기';
 
-    // 타이머 1분 세팅
     this.practiceTimer.reset(60);
     this.btnDetailTimerToggle.textContent = '▶️ 1분 타이머 시작';
 
@@ -612,10 +797,6 @@ class SKCTApp {
   }
 
   // --- 줄글 메모 모달 ---
-  initNotesModal() {
-    //
-  }
-
   openNoteModal(id = null) {
     const noteAreaSelect = document.getElementById('noteModalAreaSelect');
     const noteSubtypeSelect = document.getElementById('noteModalSubtypeSelect');
@@ -626,15 +807,15 @@ class SKCTApp {
     const btnSaveNote = document.getElementById('btnSaveNote');
     const btnCloseNoteModal = document.getElementById('btnCloseNoteModal');
 
-    noteAreaSelect.innerHTML = SKCT_AREAS
-      .filter(a => a.id !== 'all')
-      .map(a => `<option value="${a.id}">${a.icon} ${a.name}</option>`)
+    const areas = getAllAreasWithAll().filter(a => a.id !== 'all');
+    noteAreaSelect.innerHTML = areas
+      .map(a => `<option value="${a.id}">${a.icon} ${this.escapeHtml(a.name)}</option>`)
       .join('');
 
     const updateSubtypes = () => {
       const subtypes = getAllSubtypesForArea(noteAreaSelect.value);
       noteSubtypeSelect.innerHTML = `<option value="">세부유형 선택 (권장)</option>` + 
-        subtypes.map(s => `<option value="${this.escapeHtml(s)}">${this.escapeHtml(s)}</option>`).join('');
+        subtypes.map((s, idx) => `<option value="${this.escapeHtml(s)}">${idx + 1}. ${this.escapeHtml(s)}</option>`).join('');
     };
 
     noteAreaSelect.onchange = updateSubtypes;
@@ -698,7 +879,7 @@ class SKCTApp {
     };
   }
 
-  // --- Git 및 배포 연동 모달 ---
+  // --- Git 모달 및 백업 ---
   initGitModal() {
     const btnCloseGitModal = document.getElementById('btnCloseGitModal');
     if (btnCloseGitModal) {
@@ -744,13 +925,11 @@ class SKCTApp {
     }
   }
 
-  // --- 초기 샘플 데이터 시딩 ---
   async seedInitialDataIfEmpty() {
     const existing = await dbService.getAllQuestions();
     const existingNotes = await dbService.getAllNotes();
 
     if (existing.length === 0 && existingNotes.length === 0) {
-      // 샘플 줄글 메모 등록
       await dbService.saveNote({
         id: 'note_sample_1',
         area: 'math',

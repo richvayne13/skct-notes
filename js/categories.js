@@ -1,17 +1,9 @@
 /**
  * SKCT 인적성 시험 5대 영역 및 수리/추리 세부 유형 정의
+ * (실행역량 제거, 사용자 맞춤 이름 변경 및 순서 변경/드래그 지원)
  */
 
-export const SKCT_AREAS = [
-  {
-    id: 'all',
-    name: '전체 보기',
-    shortName: '전체',
-    icon: '📚',
-    color: '#8B5CF6',
-    bgColor: 'rgba(139, 92, 246, 0.15)',
-    description: '모든 영역의 오답 문항을 종합적으로 확인합니다.'
-  },
+export const DEFAULT_SKCT_AREAS = [
   {
     id: 'verbal',
     name: '언어이해',
@@ -95,26 +87,59 @@ export const SKCT_AREAS = [
       '건너뛰기 / 교대 수열',
       '분수 / 거듭제곱 / 특수 수열'
     ]
-  },
-  {
-    id: 'execution',
-    name: '실행역량 (보너스)',
-    shortName: '실행역량',
-    icon: '🎯',
-    color: '#F59E0B',
-    bgColor: 'rgba(245, 158, 11, 0.15)',
-    description: '직무 및 비즈니스 실제 상황 판단 및 우선순위 결정',
-    subtypes: [
-      '업무 우선순위 판단',
-      '조직 내 갈등 관리 및 협업',
-      '고객 응대 및 위기 대응',
-      'SK Values 인재상 부합 행동'
-    ]
   }
 ];
 
+const STORAGE_KEY = 'skct_custom_areas_v2';
+
+export function getCustomAreas() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // 'execution' 영역이 저장되어 있다면 제거
+      const cleaned = parsed.filter(a => a.id !== 'execution');
+      return cleaned;
+    }
+  } catch (e) {
+    console.warn('Failed to parse custom areas:', e);
+  }
+  return JSON.parse(JSON.stringify(DEFAULT_SKCT_AREAS));
+}
+
+export function saveCustomAreas(areas) {
+  const cleaned = areas.filter(a => a.id !== 'execution');
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
+  document.dispatchEvent(new CustomEvent('areas-updated', { detail: { areas: cleaned } }));
+}
+
+export function resetCustomAreas() {
+  localStorage.removeItem(STORAGE_KEY);
+  const defaults = JSON.parse(JSON.stringify(DEFAULT_SKCT_AREAS));
+  saveCustomAreas(defaults);
+  return defaults;
+}
+
+export function getAllAreasWithAll() {
+  const custom = getCustomAreas();
+  return [
+    {
+      id: 'all',
+      name: '전체 보기',
+      shortName: '전체',
+      icon: '📚',
+      color: '#8B5CF6',
+      bgColor: 'rgba(139, 92, 246, 0.15)',
+      description: '모든 영역의 오답 문항을 종합적으로 확인합니다.',
+      subtypes: []
+    },
+    ...custom
+  ];
+}
+
 export function getAreaById(id) {
-  return SKCT_AREAS.find(a => a.id === id) || SKCT_AREAS[0];
+  const areas = getAllAreasWithAll();
+  return areas.find(a => a.id === id) || areas[0];
 }
 
 export function getAllSubtypesForArea(areaId) {

@@ -1497,3 +1497,202 @@ body {
   .slots-container { grid-template-columns: 1fr; }
   .detail-modal-body { grid-template-columns: 1fr; }
 }
+
+/* ==========================================================================
+   Manage Areas & Subtypes Modal Styles (Drag & Drop, Renaming)
+   ========================================================================== */
+
+.section-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-left: 6px;
+  padding-right: 4px;
+}
+
+.section-title-row .section-title {
+  margin-bottom: 0;
+  padding-left: 0;
+}
+
+.btn-manage-areas {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-glass-bright);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-manage-areas:hover {
+  background: rgba(255, 90, 31, 0.2);
+  border-color: var(--color-primary);
+  color: #FFF;
+}
+
+.manage-instruction {
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: #C7D2FE;
+  margin-bottom: 20px;
+}
+
+.manage-areas-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.manage-area-card {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  transition: border-color 0.2s;
+}
+
+.manage-area-card:hover {
+  border-color: var(--border-glass-bright);
+}
+
+.manage-area-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.manage-area-icon {
+  font-size: 1.4rem;
+}
+
+.manage-area-title-input {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border-glass);
+  color: var(--text-main);
+  font-size: 1rem;
+  font-weight: 800;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: all 0.2s;
+}
+
+.manage-area-title-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-glow);
+}
+
+.manage-subtype-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 8px;
+}
+
+.manage-subtype-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  transition: all 0.15s;
+}
+
+.manage-subtype-item.draggable {
+  cursor: grab;
+}
+
+.manage-subtype-item.dragging {
+  opacity: 0.4;
+  border: 2px dashed var(--color-primary);
+  background: rgba(255, 90, 31, 0.15);
+}
+
+.manage-subtype-item.drag-over {
+  border-top: 2px solid var(--color-primary);
+  background: rgba(255, 90, 31, 0.08);
+}
+
+.drag-handle {
+  color: var(--text-sub);
+  font-size: 1.1rem;
+  user-select: none;
+  cursor: grab;
+  padding: 0 4px;
+}
+
+.drag-handle:hover {
+  color: var(--color-primary);
+}
+
+.subtype-number {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  min-width: 22px;
+}
+
+.subtype-input {
+  flex: 1;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-main);
+  font-size: 0.88rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  outline: none;
+}
+
+.subtype-input:focus {
+  background: var(--bg-input);
+  border-color: var(--border-glass-bright);
+}
+
+.btn-delete-subtype {
+  background: transparent;
+  border: none;
+  color: var(--text-sub);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.btn-delete-subtype:hover {
+  color: #EF4444;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.btn-add-subtype {
+  margin-top: 6px;
+  align-self: flex-start;
+  background: transparent;
+  border: 1px dashed var(--border-glass-bright);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-add-subtype:hover {
+  background: rgba(255, 90, 31, 0.1);
+  border-color: var(--color-primary);
+  color: #FFF;
+}
+

@@ -1,21 +1,12 @@
 /**
  * SKCT Master Error Notes - Single Bundle Script
- * file:/// 로컬 직접 열기 및 GitHub Pages 온라인 배포 완벽 지원
+ * (실행역량 제거, 시험 영역 이름 변경, 세부항목 드래그 순서변경/번호매기기 완전 지원)
  */
 
 // ==========================================
-// 1. Categories & Subtypes
+// 1. Categories & Subtypes Management
 // ==========================================
-const SKCT_AREAS = [
-  {
-    id: 'all',
-    name: '전체 보기',
-    shortName: '전체',
-    icon: '📚',
-    color: '#8B5CF6',
-    bgColor: 'rgba(139, 92, 246, 0.15)',
-    description: '모든 영역의 오답 문항을 종합적으로 확인합니다.'
-  },
+const DEFAULT_SKCT_AREAS = [
   {
     id: 'verbal',
     name: '언어이해',
@@ -99,26 +90,57 @@ const SKCT_AREAS = [
       '건너뛰기 / 교대 수열',
       '분수 / 거듭제곱 / 특수 수열'
     ]
-  },
-  {
-    id: 'execution',
-    name: '실행역량 (보너스)',
-    shortName: '실행역량',
-    icon: '🎯',
-    color: '#F59E0B',
-    bgColor: 'rgba(245, 158, 11, 0.15)',
-    description: '직무 및 비즈니스 실제 상황 판단 및 우선순위 결정',
-    subtypes: [
-      '업무 우선순위 판단',
-      '조직 내 갈등 관리 및 협업',
-      '고객 응대 및 위기 대응',
-      'SK Values 인재상 부합 행동'
-    ]
   }
 ];
 
+const STORAGE_KEY = 'skct_custom_areas_v2';
+
+function getCustomAreas() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return parsed.filter(a => a.id !== 'execution');
+    }
+  } catch (e) {
+    console.warn('Failed to parse custom areas:', e);
+  }
+  return JSON.parse(JSON.stringify(DEFAULT_SKCT_AREAS));
+}
+
+function saveCustomAreas(areas) {
+  const cleaned = areas.filter(a => a.id !== 'execution');
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
+  document.dispatchEvent(new CustomEvent('areas-updated', { detail: { areas: cleaned } }));
+}
+
+function resetCustomAreas() {
+  localStorage.removeItem(STORAGE_KEY);
+  const defaults = JSON.parse(JSON.stringify(DEFAULT_SKCT_AREAS));
+  saveCustomAreas(defaults);
+  return defaults;
+}
+
+function getAllAreasWithAll() {
+  const custom = getCustomAreas();
+  return [
+    {
+      id: 'all',
+      name: '전체 보기',
+      shortName: '전체',
+      icon: '📚',
+      color: '#8B5CF6',
+      bgColor: 'rgba(139, 92, 246, 0.15)',
+      description: '모든 영역의 오답 문항을 종합적으로 확인합니다.',
+      subtypes: []
+    },
+    ...custom
+  ];
+}
+
 function getAreaById(id) {
-  return SKCT_AREAS.find(a => a.id === id) || SKCT_AREAS[0];
+  const areas = getAllAreasWithAll();
+  return areas.find(a => a.id === id) || areas[0];
 }
 
 function getAllSubtypesForArea(areaId) {
@@ -692,7 +714,7 @@ class NotesManager {
         <div class="note-card-header">
           <div class="note-card-badges">
             <span class="badge" style="background:${area.bgColor}; color:${area.color}; border: 1px solid ${area.color}40;">
-              ${area.icon} ${area.name}
+              ${area.icon} ${this.escapeHtml(area.name)}
             </span>
             ${note.subtype ? `<span class="badge badge-sub">${this.escapeHtml(note.subtype)}</span>` : ''}
           </div>
@@ -759,7 +781,14 @@ class SKCTApp {
     this.initNotesView();
     this.initDetailModal();
     this.initGitModal();
+    this.initManageAreasModal();
     this.initTheme();
+
+    document.addEventListener('areas-updated', () => {
+      this.renderSidebar();
+      this.updateModalSubtypeOptions();
+      this.render();
+    });
 
     await this.seedInitialDataIfEmpty();
     await this.render();
@@ -875,7 +904,9 @@ class SKCTApp {
   }
 
   renderSidebar() {
-    this.sidebarCategoriesEl.innerHTML = SKCT_AREAS.map(area => {
+    const areas = getAllAreasWithAll();
+
+    this.sidebarCategoriesEl.innerHTML = areas.map(area => {
       const isSelected = this.currentArea === area.id;
       const hasSubtypes = area.subtypes && area.subtypes.length > 0;
       const isExpanded = isSelected && hasSubtypes;
@@ -884,7 +915,7 @@ class SKCTApp {
         <div class="sidebar-category-group ${isSelected ? 'active-group' : ''}">
           <button class="nav-item ${isSelected ? 'active' : ''}" data-area-id="${area.id}">
             <span class="nav-icon">${area.icon}</span>
-            <span class="nav-label">${area.name}</span>
+            <span class="nav-label">${this.escapeHtml(area.name)}</span>
             ${hasSubtypes ? `<span class="nav-arrow ${isExpanded ? 'rotated' : ''}">▾</span>` : ''}
           </button>
 
@@ -893,9 +924,9 @@ class SKCTApp {
               <button class="subtype-item ${this.currentSubtype === 'all' && isSelected ? 'active' : ''}" data-subtype="all">
                 • 전체 세부유형
               </button>
-              ${area.subtypes.map(st => `
+              ${area.subtypes.map((st, idx) => `
                 <button class="subtype-item ${this.currentSubtype === st && isSelected ? 'active' : ''}" data-subtype="${this.escapeHtml(st)}">
-                  • ${this.escapeHtml(st)}
+                  <span class="sub-num">${idx + 1}.</span> ${this.escapeHtml(st)}
                 </button>
               `).join('')}
             </div>
@@ -931,6 +962,172 @@ class SKCTApp {
     this.currentSubtype = subtype;
     this.renderSidebar();
     this.render();
+  }
+
+  // --- 영역 및 세부항목 관리 모달 ---
+  initManageAreasModal() {
+    this.btnManageAreas = document.getElementById('btnManageAreas');
+    this.manageAreasModal = document.getElementById('manageAreasModal');
+    this.manageAreasList = document.getElementById('manageAreasList');
+    this.btnCloseManageModal = document.getElementById('btnCloseManageModal');
+    this.btnResetAreasDefault = document.getElementById('btnResetAreasDefault');
+    this.btnSaveAreasChanges = document.getElementById('btnSaveAreasChanges');
+
+    if (this.btnManageAreas) {
+      this.btnManageAreas.addEventListener('click', () => this.openManageAreasModal());
+    }
+    if (this.btnCloseManageModal) {
+      this.btnCloseManageModal.addEventListener('click', () => {
+        this.manageAreasModal.classList.remove('active');
+      });
+    }
+    if (this.btnResetAreasDefault) {
+      this.btnResetAreasDefault.addEventListener('click', () => {
+        if (confirm('모든 시험 영역과 세부항목을 초기 기본값으로 복원하시겠습니까?')) {
+          resetCustomAreas();
+          this.manageAreasData = getCustomAreas();
+          this.renderManageAreasList();
+          this.clipboardMgr.showToast('🔄 기본값으로 초기화되었습니다.', 'info');
+        }
+      });
+    }
+    if (this.btnSaveAreasChanges) {
+      this.btnSaveAreasChanges.addEventListener('click', () => {
+        this.saveManagedAreas();
+      });
+    }
+  }
+
+  openManageAreasModal() {
+    this.manageAreasData = JSON.parse(JSON.stringify(getCustomAreas()));
+    this.renderManageAreasList();
+    this.manageAreasModal.classList.add('active');
+  }
+
+  renderManageAreasList() {
+    this.manageAreasList.innerHTML = this.manageAreasData.map((area, aIdx) => {
+      const subtypes = area.subtypes || [];
+
+      return `
+        <div class="manage-area-card" data-area-idx="${aIdx}">
+          <div class="manage-area-header">
+            <span class="manage-area-icon">${area.icon}</span>
+            <input type="text" class="manage-area-title-input" value="${this.escapeHtml(area.name)}" placeholder="시험 영역 제목 입력" data-area-idx="${aIdx}">
+          </div>
+
+          <div class="manage-subtype-list" data-area-idx="${aIdx}">
+            ${subtypes.map((st, sIdx) => `
+              <div class="manage-subtype-item draggable" draggable="true" data-area-idx="${aIdx}" data-sub-idx="${sIdx}">
+                <span class="drag-handle" title="위아래로 드래그하여 순서 변경">☰</span>
+                <span class="subtype-number">${sIdx + 1}.</span>
+                <input type="text" class="subtype-input" value="${this.escapeHtml(st)}" placeholder="세부항목 이름" data-area-idx="${aIdx}" data-sub-idx="${sIdx}">
+                <button type="button" class="btn-delete-subtype" data-area-idx="${aIdx}" data-sub-idx="${sIdx}" title="항목 삭제">🗑️</button>
+              </div>
+            `).join('')}
+          </div>
+
+          <button type="button" class="btn-add-subtype" data-area-idx="${aIdx}">
+            + 세부항목 추가
+          </button>
+        </div>
+      `;
+    }).join('');
+
+    this.bindManageDragAndDropEvents();
+  }
+
+  bindManageDragAndDropEvents() {
+    this.manageAreasList.querySelectorAll('.manage-area-title-input').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const aIdx = parseInt(e.target.dataset.areaIdx, 10);
+        this.manageAreasData[aIdx].name = e.target.value.trim();
+      });
+    });
+
+    this.manageAreasList.querySelectorAll('.subtype-input').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const aIdx = parseInt(e.target.dataset.areaIdx, 10);
+        const sIdx = parseInt(e.target.dataset.subIdx, 10);
+        this.manageAreasData[aIdx].subtypes[sIdx] = e.target.value;
+      });
+    });
+
+    this.manageAreasList.querySelectorAll('.btn-delete-subtype').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const aIdx = parseInt(e.currentTarget.dataset.areaIdx, 10);
+        const sIdx = parseInt(e.currentTarget.dataset.subIdx, 10);
+        this.manageAreasData[aIdx].subtypes.splice(sIdx, 1);
+        this.renderManageAreasList();
+      });
+    });
+
+    this.manageAreasList.querySelectorAll('.btn-add-subtype').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const aIdx = parseInt(e.currentTarget.dataset.areaIdx, 10);
+        this.manageAreasData[aIdx].subtypes.push('새 세부유형');
+        this.renderManageAreasList();
+      });
+    });
+
+    let draggedItem = null;
+    let draggedAreaIdx = null;
+    let draggedSubIdx = null;
+
+    this.manageAreasList.querySelectorAll('.manage-subtype-item').forEach(item => {
+      item.addEventListener('dragstart', (e) => {
+        draggedItem = item;
+        draggedAreaIdx = parseInt(item.dataset.areaIdx, 10);
+        draggedSubIdx = parseInt(item.dataset.subIdx, 10);
+        item.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+
+      item.addEventListener('dragend', () => {
+        if (draggedItem) {
+          draggedItem.classList.remove('dragging');
+        }
+        this.manageAreasList.querySelectorAll('.manage-subtype-item').forEach(el => el.classList.remove('drag-over'));
+      });
+
+      item.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const targetAreaIdx = parseInt(item.dataset.areaIdx, 10);
+        if (targetAreaIdx === draggedAreaIdx) {
+          item.classList.add('drag-over');
+        }
+      });
+
+      item.addEventListener('dragleave', () => {
+        item.classList.remove('drag-over');
+      });
+
+      item.addEventListener('drop', (e) => {
+        e.preventDefault();
+        item.classList.remove('drag-over');
+
+        const targetAreaIdx = parseInt(item.dataset.areaIdx, 10);
+        const targetSubIdx = parseInt(item.dataset.subIdx, 10);
+
+        if (draggedAreaIdx === targetAreaIdx && draggedSubIdx !== targetSubIdx) {
+          const list = this.manageAreasData[draggedAreaIdx].subtypes;
+          const [movedItem] = list.splice(draggedSubIdx, 1);
+          list.splice(targetSubIdx, 0, movedItem);
+          this.renderManageAreasList();
+        }
+      });
+    });
+  }
+
+  saveManagedAreas() {
+    this.manageAreasData.forEach(area => {
+      if (!area.name.trim()) area.name = '시험 영역';
+      area.subtypes = (area.subtypes || []).map(s => s.trim()).filter(s => s.length > 0);
+    });
+
+    saveCustomAreas(this.manageAreasData);
+    this.manageAreasModal.classList.remove('active');
+    this.clipboardMgr.showToast('💾 시험 영역 및 세부항목 설정이 저장되었습니다!', 'success');
   }
 
   initNotesView() {
@@ -1068,7 +1265,7 @@ class SKCTApp {
               <span class="resolve-text">${q.isResolved ? '복습 완료' : '다시 풀기'}</span>
             </label>
             <span class="badge" style="background:${area.bgColor}; color:${area.color}; border: 1px solid ${area.color}40;">
-              ${area.icon} ${area.shortName}
+              ${area.icon} ${this.escapeHtml(area.shortName || area.name)}
             </span>
             ${q.subtype ? `<span class="badge badge-sub">${this.escapeHtml(q.subtype)}</span>` : ''}
           </div>
@@ -1148,10 +1345,7 @@ class SKCTApp {
     this.btnSaveQuestion = document.getElementById('btnSaveQuestion');
     this.btnCloseQModal = document.getElementById('btnCloseQModal');
 
-    this.selectModalArea.innerHTML = SKCT_AREAS
-      .filter(a => a.id !== 'all')
-      .map(a => `<option value="${a.id}">${a.icon} ${a.name}</option>`)
-      .join('');
+    this.updateModalAreaOptions();
 
     this.selectModalArea.addEventListener('change', () => this.updateModalSubtypeOptions());
     this.updateModalSubtypeOptions();
@@ -1172,6 +1366,13 @@ class SKCTApp {
     });
   }
 
+  updateModalAreaOptions() {
+    const areas = getAllAreasWithAll().filter(a => a.id !== 'all');
+    this.selectModalArea.innerHTML = areas
+      .map(a => `<option value="${a.id}">${a.icon} ${this.escapeHtml(a.name)}</option>`)
+      .join('');
+  }
+
   updateModalSubtypeOptions() {
     const areaId = this.selectModalArea.value;
     const subtypes = getAllSubtypesForArea(areaId);
@@ -1182,7 +1383,7 @@ class SKCTApp {
       this.selectModalSubtype.disabled = false;
       this.selectModalSubtype.innerHTML = `
         <option value="">세부유형 선택 (권장)</option>
-        ${subtypes.map(s => `<option value="${this.escapeHtml(s)}">${this.escapeHtml(s)}</option>`).join('')}
+        ${subtypes.map((s, idx) => `<option value="${this.escapeHtml(s)}">${idx + 1}. ${this.escapeHtml(s)}</option>`).join('')}
       `;
     }
   }
@@ -1193,12 +1394,16 @@ class SKCTApp {
     this.inputMemo.value = '';
     this.inputTags.value = '';
 
+    this.updateModalAreaOptions();
+
     if (this.currentArea && this.currentArea !== 'all') {
       this.selectModalArea.value = this.currentArea;
       this.updateModalSubtypeOptions();
       if (this.currentSubtype && this.currentSubtype !== 'all') {
         this.selectModalSubtype.value = this.currentSubtype;
       }
+    } else {
+      this.updateModalSubtypeOptions();
     }
 
     this.questionModal.classList.add('active');
@@ -1287,7 +1492,7 @@ class SKCTApp {
     this.currentDetailId = id;
     const area = getAreaById(q.area);
 
-    document.getElementById('detailAreaBadge').innerHTML = `${area.icon} ${area.name} ${q.subtype ? '• ' + q.subtype : ''}`;
+    document.getElementById('detailAreaBadge').innerHTML = `${area.icon} ${this.escapeHtml(area.name)} ${q.subtype ? '• ' + this.escapeHtml(q.subtype) : ''}`;
     document.getElementById('detailQuestionImg').src = q.questionImg || '';
     document.getElementById('detailSolutionImg').src = q.solutionImg || '';
     document.getElementById('detailAnswerImg').src = q.answerImg || '';
@@ -1312,15 +1517,15 @@ class SKCTApp {
     const btnSaveNote = document.getElementById('btnSaveNote');
     const btnCloseNoteModal = document.getElementById('btnCloseNoteModal');
 
-    noteAreaSelect.innerHTML = SKCT_AREAS
-      .filter(a => a.id !== 'all')
-      .map(a => `<option value="${a.id}">${a.icon} ${a.name}</option>`)
+    const areas = getAllAreasWithAll().filter(a => a.id !== 'all');
+    noteAreaSelect.innerHTML = areas
+      .map(a => `<option value="${a.id}">${a.icon} ${this.escapeHtml(a.name)}</option>`)
       .join('');
 
     const updateSubtypes = () => {
       const subtypes = getAllSubtypesForArea(noteAreaSelect.value);
       noteSubtypeSelect.innerHTML = `<option value="">세부유형 선택 (권장)</option>` + 
-        subtypes.map(s => `<option value="${this.escapeHtml(s)}">${this.escapeHtml(s)}</option>`).join('');
+        subtypes.map((s, idx) => `<option value="${this.escapeHtml(s)}">${idx + 1}. ${this.escapeHtml(s)}</option>`).join('');
     };
 
     noteAreaSelect.onchange = updateSubtypes;

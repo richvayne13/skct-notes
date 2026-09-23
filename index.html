@@ -40,7 +40,10 @@
 
       <!-- 사이드바 카테고리 필터 (SKCT 5대 유형 + 수리/추리 세부 아코디언) -->
       <div class="sidebar-section">
-        <div class="section-title">SKCT 시험 영역</div>
+        <div class="section-title-row">
+          <div class="section-title">SKCT 시험 영역</div>
+          <button id="btnManageAreas" class="btn-manage-areas" title="시험 영역 및 세부항목 편집 / 순서 변경">⚙️ 관리</button>
+        </div>
         <nav id="sidebarCategories" class="category-nav">
           <!-- categories.js에 의해 동적 렌더링 -->
         </nav>
@@ -462,6 +465,36 @@ git push -u origin main</pre>
       <div class="modal-footer">
         <button class="btn btn-primary" onclick="document.getElementById('gitModal').classList.remove('active');">
           확인 완료
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- E. 시험 영역 및 세부항목 관리 모달 (이름 변경, 순서 드래그, 항목 추가/삭제, 번호 자동 매김) -->
+  <div id="manageAreasModal" class="modal-backdrop">
+    <div class="modal-card modal-lg glass-panel">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-tag">CUSTOMIZE CATEGORIES</div>
+          <h3>⚙️ 시험 영역 및 세부항목 설정</h3>
+        </div>
+        <button id="btnCloseManageModal" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="manage-instruction">
+          <span>💡 <strong>시험영역 제목</strong>과 <strong>세부항목 이름</strong>을 자유롭게 수정할 수 있으며, <strong>☰ 핸들을 마우스로 드래그</strong>하여 세부항목의 순서를 변경할 수 있습니다. 번호는 순서에 따라 자동으로 매겨집니다.</span>
+        </div>
+
+        <div id="manageAreasList" class="manage-areas-list">
+          <!-- 동적 렌더링 -->
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: space-between;">
+        <button id="btnResetAreasDefault" class="btn btn-glass" style="color:#EF4444;">
+          🔄 기본값으로 초기화
+        </button>
+        <button id="btnSaveAreasChanges" class="btn btn-vivid-gradient">
+          💾 설정 저장 및 적용
         </button>
       </div>
     </div>
