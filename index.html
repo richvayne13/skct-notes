@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SKCT 마스터 오답노트 | 스마트 인적성 오답 분석 시스템</title>
+  <meta name="description" content="SK 종합역량검사(SKCT) 캡처 이미지 Ctrl+V 오답노트, 수리·추리 세부유형 분석, 풀이 블러 가림, 줄글 메모장 및 Git 온라인 연동">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- 1. 좌측 사이드바 (Left Navigation & Headers) -->
+    <aside class="sidebar glass-panel">
+      <!-- 브랜딩 / 로고 -->
+      <div class="sidebar-brand">
+        <div class="brand-badge">SKCT PASS</div>
+        <h1 class="brand-title">
+          <span class="gradient-text">SKCT</span> 오답노트
+        </h1>
+        <p class="brand-subtitle">스마트 캡처 &amp; 실전 복습 시스템</p>
+      </div>
+
+      <!-- 모드 전환 네비게이션 (문제 오답노트 vs 줄글 메모 노트) -->
+      <div class="view-switch-box">
+        <button id="tabQuestionsBtn" class="tab-btn active">
+          <span class="tab-icon">🎯</span>
+          <span class="tab-text">문제 오답노트</span>
+        </button>
+        <button id="tabNotesBtn" class="tab-btn">
+          <span class="tab-icon">📝</span>
+          <span class="tab-text">줄글 메모 노트</span>
+        </button>
+      </div>
+
+      <!-- 사이드바 카테고리 필터 (SKCT 5대 유형 + 수리/추리 세부 아코디언) -->
+      <div class="sidebar-section">
+        <div class="section-title">SKCT 시험 영역</div>
+        <nav id="sidebarCategories" class="category-nav">
+          <!-- categories.js에 의해 동적 렌더링 -->
+        </nav>
+      </div>
+
+      <!-- 사이드바 하단 학습 통계 & 유틸리티 -->
+      <div class="sidebar-footer">
+        <div class="stats-card">
+          <div class="stat-item">
+            <span class="stat-label">등록 문항</span>
+            <span id="statTotalQuestions" class="stat-val highlight">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">복습 필요</span>
+            <span id="statNeedReview" class="stat-val warning">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">마스터 완료</span>
+            <span id="statResolved" class="stat-val success">0</span>
+          </div>
+        </div>
+
+        <div class="sidebar-actions">
+          <button id="btnGitSync" class="btn btn-secondary btn-full">
+            <span class="btn-icon">🌐</span> Git / 온라인 배포
+          </button>
+          <div class="action-row">
+            <button id="btnExportData" class="btn btn-sm btn-glass" title="데이터 JSON 백업">
+              💾 백업
+            </button>
+            <label class="btn btn-sm btn-glass file-import-label" title="데이터 복원">
+              📂 복원
+              <input type="file" id="fileImportInput" accept=".json" style="display:none;">
+            </label>
+            <button id="themeToggleBtn" class="btn btn-sm btn-glass" title="화면 테마 변경">
+              ☀️ 라이트
+            </button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 2. 우측 메인 콘텐츠 영역 -->
+    <main class="main-content">
+      
+      <!-- 상단 탑바 (검색, 빠른 필터, 마스터 블러 토글, 등록 버튼) -->
+      <header class="top-bar glass-panel">
+        <div class="top-bar-left">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" placeholder="문제 메모, 세부 유형, 태그, 실수 요인 검색..." autocomplete="off">
+          </div>
+          <select id="statusFilter" class="select-filter">
+            <option value="all">전체 상태 보기</option>
+            <option value="need_review">🔄 복습 필요 문항</option>
+            <option value="resolved">✅ 복습 완료 문항</option>
+          </select>
+        </div>
+
+        <div class="top-bar-right">
+          <!-- 마스터 블러 토글 -->
+          <button id="toggleMasterBlurBtn" class="btn btn-glass" title="모든 카드의 풀이/답을 한 번에 숨기거나 표시합니다">
+            <span class="icon">🔒</span> 전체 풀이/답 숨김
+          </button>
+
+          <!-- 문제 등록 버튼 (Ctrl+V 마법사) -->
+          <button id="btnOpenQuestionModal" class="btn btn-vivid-gradient">
+            <span class="btn-icon">📷</span>
+            <span>+ 새 문제 캡처 등록 (Ctrl+V)</span>
+          </button>
+
+          <!-- 줄글 메모 등록 버튼 -->
+          <button id="btnOpenNoteModal" class="btn btn-vivid-gradient" style="display:none;">
+            <span class="btn-icon">✍️</span>
+            <span>+ 새 오답 비법 메모 작성</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- 3. 메인 뷰 컨테이너 -->
+      <div class="content-body">
+        
+        <!-- 3-1. 문제 오답노트 뷰 -->
+        <section id="questionsView" class="view-panel">
+          <div class="view-header">
+            <div class="view-header-title">
+              <h2>문제 오답 피드</h2>
+              <span id="questionsCountBadge" class="count-badge">0문항</span>
+            </div>
+            <div class="view-tip">
+              💡 <strong>Ctrl+V</strong>로 [문제, 풀이, 답]을 각각 붙여넣으면 풀이와 정답은 <strong>자동 블러(Blur)</strong> 처리되어 실전처럼 풀 수 있습니다!
+            </div>
+          </div>
+
+          <!-- 카드 그리드 -->
+          <div id="questionsGrid" class="questions-grid">
+            <!-- JavaScript 렌더링 -->
+          </div>
+        </section>
+
+        <!-- 3-2. 줄글 메모 노트 뷰 -->
+        <section id="notesView" class="view-panel" style="display:none;">
+          <div class="view-header">
+            <div class="view-header-title">
+              <h2>줄글 오답 비법 &amp; 핵심 공식 메모장</h2>
+              <span id="notesCountBadge" class="count-badge">0건</span>
+            </div>
+            <div class="view-tip">
+              📌 거속시·소금물 공식, 자료해석 분수 어림산, 삼단논법 규칙 등 시험 전 직전 요약집으로 활용하세요!
+            </div>
+          </div>
+
+          <!-- 메모 컨테이너 -->
+          <div id="notesContainer">
+            <!-- JavaScript 렌더링 -->
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+  </div>
+
+  <!-- ================= 모달 영역 ================= -->
+
+  <!-- A. 새 문제 캡처 등록 모달 (Ctrl+V 3단계 슬롯) -->
+  <div id="questionModal" class="modal-backdrop">
+    <div class="modal-card modal-lg glass-panel">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-tag">SMART CLIPBOARD PASTE</div>
+          <h3>📷 캡처 이미지 오답 문제 등록</h3>
+        </div>
+        <button id="btnCloseQModal" class="modal-close-btn">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- 상단 옵션 바 -->
+        <div class="wizard-instruction">
+          <div class="instruction-text">
+            <span>👉 화면 캡처(Win+Shift+S 등) 후 아래 슬롯을 클릭하고 <strong>Ctrl + V</strong>를 누르세요!</span>
+          </div>
+          <label class="toggle-control" title="문제 붙여넣기 시 자동으로 다음 슬롯(풀이, 답)으로 이동합니다">
+            <input type="checkbox" id="chkAutoAdvance" checked>
+            <span class="toggle-slider"></span>
+            <span class="toggle-text">스마트 순차 자동 이동</span>
+          </label>
+        </div>
+
+        <!-- 3대 슬롯: 문제, 풀이, 답 -->
+        <div id="clipboardSlotsContainer" class="slots-container">
+          
+          <!-- 슬롯 1: 문제 -->
+          <div class="paste-slot slot-active" data-slot="question" tabindex="0">
+            <div class="slot-header">
+              <span class="slot-title"><span class="slot-number">1</span> 📷 문제 이미지 <span class="required">*</span></span>
+              <button class="btn-clear-slot" title="이미지 삭제" style="display:none;">&times;</button>
+            </div>
+            <div class="slot-content">
+              <div class="slot-placeholder">
+                <div class="placeholder-icon">📋</div>
+                <div class="placeholder-text">여기를 클릭 후 <strong>Ctrl + V</strong></div>
+                <button type="button" class="btn btn-sm btn-glass btn-paste-clipboard">
+                  클립보드에서 가져오기
+                </button>
+              </div>
+              <img class="slot-preview" alt="문제 미리보기" style="display:none;">
+            </div>
+            <div class="slot-status">현재 활성화: 붙여넣기 대기 중</div>
+          </div>
+
+          <!-- 슬롯 2: 풀이과정 -->
+          <div class="paste-slot" data-slot="solution" tabindex="0">
+            <div class="slot-header">
+              <span class="slot-title"><span class="slot-number">2</span> 📝 풀이과정 이미지</span>
+              <button class="btn-clear-slot" title="이미지 삭제" style="display:none;">&times;</button>
+            </div>
+            <div class="slot-content">
+              <div class="slot-placeholder">
+                <div class="placeholder-icon">📐</div>
+                <div class="placeholder-text">여기를 클릭 후 <strong>Ctrl + V</strong></div>
+                <button type="button" class="btn btn-sm btn-glass btn-paste-clipboard">
+                  클립보드에서 가져오기
+                </button>
+              </div>
+              <img class="slot-preview" alt="풀이 미리보기" style="display:none;">
+            </div>
+            <div class="slot-status">기본 블러 처리되어 복습 시 가려집니다</div>
+          </div>
+
+          <!-- 슬롯 3: 정답 -->
+          <div class="paste-slot" data-slot="answer" tabindex="0">
+            <div class="slot-header">
+              <span class="slot-title"><span class="slot-number">3</span> 🎯 정답 이미지</span>
+              <button class="btn-clear-slot" title="이미지 삭제" style="display:none;">&times;</button>
+            </div>
+            <div class="slot-content">
+              <div class="slot-placeholder">
+                <div class="placeholder-icon">✅</div>
+                <div class="placeholder-text">여기를 클릭 후 <strong>Ctrl + V</strong></div>
+                <button type="button" class="btn btn-sm btn-glass btn-paste-clipboard">
+                  클립보드에서 가져오기
+                </button>
+              </div>
+              <img class="slot-preview" alt="정답 미리보기" style="display:none;">
+            </div>
+            <div class="slot-status">기본 블러 처리되어 복습 시 가려집니다</div>
+          </div>
+
+        </div>
+
+        <!-- 메타데이터 입력 (영역, 세부유형, 오답 실수 원인, 메모) -->
+        <div class="modal-form-grid">
+          <div class="form-group">
+            <label>SKCT 영역 <span class="required">*</span></label>
+            <select id="modalAreaSelect" class="form-control"></select>
+          </div>
+
+          <div class="form-group">
+            <label>수리/추리 세부 유형 분류</label>
+            <select id="modalSubtypeSelect" class="form-control"></select>
+          </div>
+
+          <div class="form-group full-width">
+            <label>오답 원인 / 실수 요인 빠른 태그</label>
+            <div class="quick-reasons">
+              <button type="button" class="btn-quick-reason">⏱️ 시간 부족</button>
+              <button type="button" class="btn-quick-reason">🧮 계산/사칙연산 실수</button>
+              <button type="button" class="btn-quick-reason">❓ 유형 풀이법 생소</button>
+              <button type="button" class="btn-quick-reason">👀 조건/단서 놓침</button>
+              <button type="button" class="btn-quick-reason">🌀 보기/선지 함정</button>
+              <button type="button" class="btn-quick-reason">📐 공식 암기 부족</button>
+            </div>
+            <input type="text" id="modalMistakeReason" class="form-control mt-2" placeholder="직접 입력하거나 위의 추천 버튼을 클릭하세요">
+          </div>
+
+          <div class="form-group full-width">
+            <label>핵심 오답 메모 &amp; 다시 풀 때 주의할 점</label>
+            <textarea id="modalMemo" class="form-control" rows="2" placeholder="예: 소금물 식 세우지 말고 가중평균 지렛대 공식 쓸 것, 3번 선지부터 역대입할 것"></textarea>
+          </div>
+
+          <div class="form-group full-width">
+            <label>태그 (쉼표로 구분)</label>
+            <input type="text" id="modalTags" class="form-control" placeholder="예: 기출, 2026하반기, 꼭복습, SK하이닉스">
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="btnSaveQuestion" class="btn btn-vivid-gradient btn-lg" disabled>
+          <span class="btn-icon">💾</span> 오답 문제 저장 완료
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- B. 줄글 메모 오답노트 작성/수정 모달 -->
+  <div id="noteModal" class="modal-backdrop">
+    <div class="modal-card glass-panel">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-tag">MEMO &amp; STRATEGY</div>
+          <h3>📝 줄글 오답 비법 &amp; 공식 메모 작성</h3>
+        </div>
+        <button id="btnCloseNoteModal" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-form-grid">
+          <div class="form-group">
+            <label>SKCT 영역 <span class="required">*</span></label>
+            <select id="noteModalAreaSelect" class="form-control"></select>
+          </div>
+          <div class="form-group">
+            <label>세부 유형</label>
+            <select id="noteModalSubtypeSelect" class="form-control"></select>
+          </div>
+          <div class="form-group full-width">
+            <label>메모 제목 <span class="required">*</span></label>
+            <input type="text" id="noteModalTitle" class="form-control" placeholder="예: 거속시 마주보고 달릴 때 풀이 공식">
+          </div>
+          <div class="form-group full-width">
+            <label>핵심 공식 및 풀이 스킬 (줄글 / 마크다운) <span class="required">*</span></label>
+            <textarea id="noteModalContent" class="form-control" rows="6" placeholder="자주 쓰는 공식, 전개 순서, 단축 풀이 비법을 자유롭게 줄글로 정리하세요"></textarea>
+          </div>
+          <div class="form-group full-width">
+            <label>💡 핵심 팁 / 피해야 할 실수 패턴</label>
+            <input type="text" id="noteModalTips" class="form-control" placeholder="예: 시속을 분속으로 바꿀 때 60 나누는 거 까먹지 말 것!">
+          </div>
+          <div class="form-group full-width">
+            <label>태그 (쉼표로 구분)</label>
+            <input type="text" id="noteModalTags" class="form-control" placeholder="예: 수리, 공식, 암기노트">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btnSaveNote" class="btn btn-vivid-gradient btn-lg">
+          <span class="btn-icon">💾</span> 메모 저장하기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- C. 실전 집중 모드 모달 (1분 타이머 + 큰 화면) -->
+  <div id="detailModal" class="modal-backdrop">
+    <div class="modal-card modal-xl glass-panel">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <span id="detailAreaBadge" class="badge"></span>
+          <h3 style="margin-top:4px;">⏱️ SKCT 실전 집중 풀이 모드</h3>
+        </div>
+        <div class="timer-box">
+          <span class="timer-label">풀이 타이머</span>
+          <span id="detailTimerDisplay" class="timer-digits">01:00</span>
+          <button id="btnDetailTimerToggle" class="btn btn-sm btn-primary">▶️ 타이머 시작</button>
+          <button id="btnDetailTimerReset" class="btn btn-sm btn-glass">리셋</button>
+        </div>
+        <button id="btnCloseDetailModal" class="modal-close-btn">&times;</button>
+      </div>
+
+      <div class="modal-body detail-modal-body">
+        <!-- 문제 본문 -->
+        <div class="detail-question-panel">
+          <div class="detail-label">📋 문제</div>
+          <div class="detail-img-wrapper">
+            <img id="detailQuestionImg" alt="문제 상세">
+          </div>
+          <div id="detailMemo" class="detail-memo-box"></div>
+        </div>
+
+        <!-- 풀이 및 정답 (토글 가능) -->
+        <div class="detail-solution-panel">
+          <div class="solution-header-row">
+            <div class="detail-label">🎯 정답 &amp; 풀이과정</div>
+            <button id="btnDetailReveal" class="btn btn-reveal">
+              👁️ 정답 &amp; 풀이과정 확인하기
+            </button>
+          </div>
+
+          <div id="detailSecretBox" class="detail-secret-box">
+            <div class="secret-overlay">
+              <div class="overlay-notice">
+                <span class="lock-icon">🔒</span>
+                <span>실전 연습 중에는 정답과 풀이가 가려집니다.</span>
+                <span class="sub-notice">문제를 다 푼 뒤 위의 '확인하기' 버튼을 누르세요.</span>
+              </div>
+            </div>
+
+            <div class="secret-inner">
+              <div class="secret-block">
+                <h4>📝 해설 및 풀이과정</h4>
+                <div class="detail-img-wrapper">
+                  <img id="detailSolutionImg" alt="풀이 상세">
+                </div>
+              </div>
+
+              <div class="secret-block">
+                <h4>🎯 정답</h4>
+                <div class="detail-img-wrapper">
+                  <img id="detailAnswerImg" alt="정답 상세">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- D. Git 및 GitHub Pages 온라인 연동 안내 모달 -->
+  <div id="gitModal" class="modal-backdrop">
+    <div class="modal-card modal-md glass-panel">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-tag">ONLINE DEPLOYMENT</div>
+          <h3>🌐 Git &amp; GitHub Pages 온라인 연동</h3>
+        </div>
+        <button id="btnCloseGitModal" class="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body git-modal-content">
+        <div class="git-status-card">
+          <div class="git-badge">READY TO DEPLOY</div>
+          <h4>로컬 Git 저장소 및 배포 스크립트 구성 완료!</h4>
+          <p>이 웹 애플리케이션은 서버 없이 GitHub Pages에서 100% 무료로 동작하는 초경량 정적 웹앱입니다.</p>
+        </div>
+
+        <div class="deploy-steps">
+          <div class="step-item">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <strong>GitHub에 새 Repository 생성</strong>
+              <p>GitHub(github.com)에서 <code>skct-notes</code> 이름으로 새 빈 리포지토리를 생성합니다.</p>
+            </div>
+          </div>
+
+          <div class="step-item">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <strong>원격 저장소 연결 및 원클릭 푸시</strong>
+              <p>작업 폴더의 <code>tool/skct-note</code> 경로에서 터미널을 열고 아래 명령어를 입력하거나 함께 제공된 <code>deploy.bat</code>을 실행하세요:</p>
+              <pre class="code-box">git remote add origin https://github.com/당신의아이디/skct-notes.git
+git branch -M main
+git push -u origin main</pre>
+            </div>
+          </div>
+
+          <div class="step-item">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <strong>GitHub Pages 활성화</strong>
+              <p>저장소 [Settings] &gt; [Pages] 메뉴에서 Source를 <strong>Deploy from a branch (main / root)</strong>로 설정하면 수초 내에 온라인 링크가 생성됩니다!</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="backup-tip-box">
+          💡 <strong>데이터 백업 팁:</strong> 캡처한 오답 데이터는 좌측 사이드바의 <strong>[💾 백업]</strong> 버튼으로 JSON 파일로 저장한 후 Git 저장소에 커밋하여 영구 보관할 수 있습니다.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="document.getElementById('gitModal').classList.remove('active');">
+          확인 완료
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript 모듈 로드 -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
