@@ -138,11 +138,12 @@ class SKCTApp {
 
     this.clipboardMgr.showToast(`⏳ ${seed.length}개 1:1 정밀 매칭 문항을 등록하는 중입니다...`, 'info');
 
+    await dbService.clearQuestions();
     for (const q of seed) {
       await dbService.saveQuestion(q);
     }
 
-    localStorage.setItem('skct_seed_version_20260923_1to1_final_v6', 'v6_279_items_1to1');
+    localStorage.setItem('skct_seed_version_20260923_1to1_final_v7', 'v7_279_items_clean');
     this.clipboardMgr.showToast(`🎉 봉봉TV ${seed.length}문항(1:1 문제·해설·정답) 반영 완료!`, 'success');
     await this.render();
   }
@@ -539,6 +540,9 @@ class SKCTApp {
       day: 'numeric'
     });
 
+    const qImg = q.questionImg || q.questionImage;
+    const sImg = q.solutionImg || q.solutionImage;
+
     return `
       <div class="question-card glass-panel ${q.isResolved ? 'is-resolved' : ''} ${!this.globalBlur ? 'revealed' : ''}" data-id="${q.id}">
         <div class="card-header">
@@ -552,6 +556,7 @@ class SKCTApp {
               ${area.icon} ${this.escapeHtml(area.shortName || area.name)}
             </span>
             ${q.subtype ? `<span class="badge badge-sub">${this.escapeHtml(q.subtype)}</span>` : ''}
+            ${q.title ? `<span class="badge" style="background:rgba(255,255,255,0.08); font-weight:700;">${this.escapeHtml(q.title)}</span>` : ''}
           </div>
           <div class="card-header-right">
             <span class="card-date">${dateStr}</span>
@@ -566,7 +571,7 @@ class SKCTApp {
             ${q.mistakeReason ? `<span class="mistake-badge">실수 요인: ${this.escapeHtml(q.mistakeReason)}</span>` : ''}
           </div>
           <div class="img-container question-img-box">
-            ${q.questionImg ? `<img src="${q.questionImg}" alt="문제" loading="lazy">` : '<div class="no-img">문제 이미지 없음</div>'}
+            ${qImg ? `<img src="${qImg}" alt="문제" loading="lazy">` : '<div class="no-img">문제 이미지 없음</div>'}
           </div>
         </div>
 
@@ -582,10 +587,11 @@ class SKCTApp {
             <div class="card-section card-solution-section">
               <div class="section-label">
                 <span class="label-badge badge-s">풀이 및 정답</span>
+                ${q.correctAnswer ? `<span class="badge" style="background:#10B981; color:#fff; font-weight:700; margin-left:8px;">정답: ${this.escapeHtml(q.correctAnswer)}</span>` : ''}
                 <button class="btn-mini-hide btn-toggle-blur" title="다시 가리기">🔒 다시 가리기</button>
               </div>
               <div class="img-container solution-img-box">
-                ${q.solutionImg ? `<img src="${q.solutionImg}" alt="해설" loading="lazy">` : '<div class="no-img">해설 이미지 없음</div>'}
+                ${sImg ? `<img src="${sImg}" alt="해설" loading="lazy">` : '<div class="no-img">해설 이미지 없음</div>'}
               </div>
             </div>
           </div>
@@ -767,11 +773,17 @@ class SKCTApp {
     this.currentDetailId = id;
     const area = getAreaById(q.area);
 
-    document.getElementById('detailAreaBadge').innerHTML = `${area.icon} ${this.escapeHtml(area.name)} ${q.subtype ? '• ' + this.escapeHtml(q.subtype) : ''}`;
-    document.getElementById('detailQuestionImg').src = q.questionImg || '';
-    document.getElementById('detailSolutionImg').src = q.solutionImg || '';
+    const titleStr = q.title ? ` • ${this.escapeHtml(q.title)}` : '';
+    document.getElementById('detailAreaBadge').innerHTML = `${area.icon} ${this.escapeHtml(area.name)} ${q.subtype ? '• ' + this.escapeHtml(q.subtype) : ''}${titleStr}`;
+    document.getElementById('detailQuestionImg').src = q.questionImg || q.questionImage || '';
+    document.getElementById('detailSolutionImg').src = q.solutionImg || q.solutionImage || '';
     document.getElementById('detailAnswerImg').src = q.answerImg || '';
-    document.getElementById('detailMemo').textContent = q.memo ? `💡 핵심 메모: ${q.memo}` : '';
+    
+    let memoText = q.memo ? `💡 핵심 메모: ${q.memo}` : '';
+    if (q.correctAnswer) {
+      memoText = `🎯 정답: ${q.correctAnswer} ${memoText ? ' | ' + memoText : ''}`;
+    }
+    document.getElementById('detailMemo').textContent = memoText;
 
     this.detailSecretBox.classList.remove('revealed');
     this.btnDetailReveal.textContent = '👁️ 정답 & 풀이과정 확인하기';
@@ -916,13 +928,14 @@ class SKCTApp {
     const existing = await dbService.getAllQuestions();
     const existingNotes = await dbService.getAllNotes();
 
-    // 1. 봉봉TV 279제 1:1 정밀 매칭 시드 자동 적재 및 마이그레이션
-    if (seed.length > 0 && (savedVersion !== 'v6_279_items_1to1' || existing.length < 200)) {
+    // 1. 봉봉TV 279제 1:1 정밀 매칭 시드 자동 적재 및 마이그레이션 (기존 불일치 캐시 클린 초기화)
+    if (seed.length > 0 && (savedVersion !== 'v7_279_items_clean' || existing.length < 200)) {
       console.log('새 1:1 정밀 매칭 279문항 데이터베이스 자동 적재 중...');
+      await dbService.clearQuestions();
       for (const q of seed) {
         await dbService.saveQuestion(q);
       }
-      localStorage.setItem(SEED_VERSION_KEY, 'v6_279_items_1to1');
+      localStorage.setItem(SEED_VERSION_KEY, 'v7_279_items_clean');
     }
 
     // 2. 줄글 공식 메모장 초기 시드

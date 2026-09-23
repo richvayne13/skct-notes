@@ -113,6 +113,17 @@ class StorageService {
     });
   }
 
+  async clearQuestions() {
+    await this.ready();
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction([STORE_QUESTIONS], 'readwrite');
+      const store = transaction.objectStore(STORE_QUESTIONS);
+      const request = store.clear();
+      request.onsuccess = () => resolve(true);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
   // --- Notes (줄글 메모 오답노트) ---
   async getAllNotes() {
     await this.ready();
