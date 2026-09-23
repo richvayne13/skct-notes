@@ -447,16 +447,88 @@ class ClipboardManager {
       }
     });
 
-    // 컨테이너 전체에 전역 paste 리스너 부착
+    // 컨테이너 및 윈도우 전역에 paste 리스너 부착
     this.container.addEventListener('paste', (e) => {
-      if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
-        return;
-      }
-      e.preventDefault();
-      this.handlePasteEvent(e, this.activeSlot);
+      this.handleGlobalPaste(e, this.activeSlot);
     });
 
+    if (!window._skctGlobalPasteAttached) {
+      window._skctGlobalPasteAttached = true;
+      window.addEventListener('paste', (e) => {
+        const qModal = document.getElementById('questionModal');
+        if (qModal && qModal.classList.contains('active')) {
+          this.handleGlobalPaste(e, this.activeSlot || 'question');
+        } else {
+          // 모달이 닫혀있더라도 클립보드에 이미지가 들어있으면 자동 모달 열기 및 문제 슬롯 붙여넣기
+          const isTextInput = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName);
+          if (isTextInput) return;
+
+          const clipboardData = e.clipboardData || window.clipboardData;
+          let hasImage = false;
+          if (clipboardData?.items) {
+            for (let i = 0; i < clipboardData.items.length; i++) {
+              if (clipboardData.items[i].type?.indexOf('image') !== -1) {
+                hasImage = true;
+                break;
+              }
+            }
+          }
+          if (!hasImage && clipboardData?.files?.length > 0) {
+            hasImage = true;
+          }
+
+          if (hasImage) {
+            e.preventDefault();
+            const btnOpen = document.getElementById('btnOpenQuestionModal');
+            if (btnOpen) {
+              btnOpen.click();
+              // 모달 오픈 직후 문제 슬롯에 붙여넣기
+              setTimeout(() => {
+                this.setActiveSlot('question');
+                this.handlePasteEvent(e, 'question');
+              }, 50);
+            }
+          }
+        }
+      });
+    }
+
     this.updateSlotUI();
+  }
+
+  // 전역/컨테이너 paste 이벤트 처리 (입력창 텍스트 입력 방해 방지 및 이미지 100% 가로채기)
+  handleGlobalPaste(e, targetSlot) {
+    const isTextInput = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName);
+    const clipboardData = e.clipboardData || window.clipboardData;
+    if (!clipboardData) return;
+
+    // 클립보드에 이미지가 포함되어 있는지 확인
+    let hasImage = false;
+    if (clipboardData.items && clipboardData.items.length > 0) {
+      for (let i = 0; i < clipboardData.items.length; i++) {
+        if (clipboardData.items[i].type && clipboardData.items[i].type.indexOf('image') !== -1) {
+          hasImage = true;
+          break;
+        }
+      }
+    }
+    if (!hasImage && clipboardData.files && clipboardData.files.length > 0) {
+      for (let i = 0; i < clipboardData.files.length; i++) {
+        if (clipboardData.files[i].type?.startsWith('image/') || clipboardData.files[i].name?.match(/\.(png|jpg|jpeg|webp|gif|bmp)$/i)) {
+          hasImage = true;
+          break;
+        }
+      }
+    }
+
+    // 텍스트 입력창 포커스 중인데 이미지 데이터가 없다면 기본 텍스트 붙여넣기 동작 허용
+    if (isTextInput && !hasImage) {
+      return;
+    }
+
+    // 이미지가 포함되어 있거나 텍스트 입력 중이 아니면 슬롯 붙여넣기로 가로챔
+    e.preventDefault();
+    this.handlePasteEvent(e, targetSlot || this.activeSlot || 'question');
   }
 
   setActiveSlot(slotName) {
@@ -495,14 +567,15 @@ class ClipboardManager {
     });
   }
 
-  // 브라우저 paste 이벤트 핸들러
+  // 브라우저 paste 이벤트 핸들러 (5단계 다중 소스 추출 엔진)
   handlePasteEvent(e, targetSlot) {
+    const slot = targetSlot || this.activeSlot || 'question';
     const clipboardData = e.clipboardData || window.clipboardData;
     if (!clipboardData) return;
 
     let imageFile = null;
 
-    // 1. clipboardData.items 먼저 확인 (스크린샷 클립보드에 가장 최적화)
+    // 1단계: clipboardData.items 먼저 확인 (화면 캡처 클립보드 최우선)
     if (clipboardData.items && clipboardData.items.length > 0) {
       for (let i = 0; i < clipboardData.items.length; i++) {
         const item = clipboardData.items[i];
@@ -513,18 +586,18 @@ class ClipboardManager {
       }
     }
 
-    // 2. clipboardData.files 확인 (파일 탐색기 복사 대응)
+    // 2단계: clipboardData.files 확인 (파일 탐색기 Ctrl+C 복사)
     if (!imageFile && clipboardData.files && clipboardData.files.length > 0) {
       for (let i = 0; i < clipboardData.files.length; i++) {
         const file = clipboardData.files[i];
-        if (file.type?.startsWith('image/') || file.name?.match(/\.(png|jpg|jpeg|webp|gif|bmp)$/i)) {
+        if (file.type?.startsWith('image/') || file.name?.match(/\.(png|jpg|jpeg|webp|gif|bmp)$/i) || file.size > 0) {
           imageFile = file;
           break;
         }
       }
     }
 
-    // 3. items에서 kind === 'file'인 항목 재검색
+    // 3단계: items에서 kind === 'file'인 항목 재검색
     if (!imageFile && clipboardData.items) {
       for (let i = 0; i < clipboardData.items.length; i++) {
         const item = clipboardData.items[i];
@@ -538,10 +611,64 @@ class ClipboardManager {
       }
     }
 
+    // 이미지 파일이 발견된 경우 처리
     if (imageFile) {
-      this.processImageFile(imageFile, targetSlot);
+      this.processImageFile(imageFile, slot);
+      return;
+    }
+
+    // 4단계: HTML 클립보드 파싱 (웹/PDF 뷰어 우클릭 '이미지 복사' 대응)
+    if (clipboardData.getData) {
+      try {
+        const html = clipboardData.getData('text/html');
+        if (html) {
+          const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+          if (match && match[1]) {
+            this.applyDataUrlDirectly(match[1], slot);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('HTML clipboard parse error:', err);
+      }
+    }
+
+    // 5단계: Plain text 파싱 (Base64 dataURL 또는 이미지 URL 텍스트 복사 대응)
+    if (clipboardData.getData) {
+      try {
+        const text = clipboardData.getData('text/plain')?.trim();
+        if (text && (text.startsWith('data:image/') || text.match(/\.(png|jpg|jpeg|webp|gif|bmp)(\?.*)?$/i))) {
+          this.applyDataUrlDirectly(text, slot);
+          return;
+        }
+      } catch (err) {
+        console.warn('Text clipboard parse error:', err);
+      }
+    }
+
+    this.showToast('⚠️ 클립보드에 이미지가 없습니다. 캡처(Win+Shift+S) 후 다시 붙여넣거나 [📂 파일 직접 선택]을 이용해 주세요.', 'warning');
+  }
+
+  // 이미지 URL 또는 dataURL 직접 슬롯에 적용
+  applyDataUrlDirectly(url, slotName) {
+    this.setSlotImage(slotName, url);
+    this.handleSlotAdvance(slotName);
+  }
+
+  // 슬롯 순차 자동 이동 및 안내 토스트 처리
+  handleSlotAdvance(slotName) {
+    if (this.autoAdvance) {
+      if (slotName === 'question') {
+        this.setActiveSlot('solution');
+        this.showToast('✅ [문제] 등록 완료! ➡️ 이제 [풀이]를 붙여넣으세요.', 'success');
+      } else if (slotName === 'solution') {
+        this.setActiveSlot('answer');
+        this.showToast('✅ [풀이] 등록 완료! ➡️ 이제 [답]을 붙여넣으세요.', 'success');
+      } else if (slotName === 'answer') {
+        this.showToast('🎉 문제, 풀이, 답 3종 이미지 등록 완료!', 'success');
+      }
     } else {
-      this.showToast('클립보드에 복사된 이미지가 없습니다. 캡처(Win+Shift+S) 후 다시 붙여넣어 주세요.', 'warning');
+      this.showToast(`✅ [${this.getSlotKoreanName(slotName)}] 등록 완료!`, 'success');
     }
   }
 
@@ -549,7 +676,7 @@ class ClipboardManager {
   async pasteFromClipboardApi(targetSlot) {
     try {
       if (!navigator.clipboard || !navigator.clipboard.read) {
-        this.showToast('Ctrl + V 단축키로 직접 붙여넣어 주세요!', 'info');
+        this.showToast('키보드로 Ctrl + V 를 눌러 바로 붙여넣어 주세요!', 'info');
         return;
       }
 
@@ -567,18 +694,19 @@ class ClipboardManager {
       }
 
       if (!imageFound) {
-        this.showToast('클립보드에 이미지가 없습니다. 화면을 캡처한 후 눌러주세요!', 'warning');
+        this.showToast('⚠️ 클립보드에 이미지가 없습니다. 캡처(Win+Shift+S) 후 눌러주세요!', 'warning');
       }
     } catch (err) {
       console.warn('Clipboard read error or permission denied:', err);
-      this.showToast('Ctrl + V 키를 눌러 붙여넣어 주세요!', 'info');
+      this.showToast('브라우저 권한에 의해 차단되었습니다. 키보드로 Ctrl + V 를 눌러주세요!', 'info');
     }
   }
 
-  // 이미지 파일 읽기 및 슬롯 할당 (실패 없는 100% 무결점 Fallback 엔진)
+  // 이미지 파일 읽기 및 슬롯 할당 (즉시 반영 + 백그라운드 비동기 최적화)
   processImageFile(file, slotName) {
     if (!file) return;
 
+    const slot = slotName || this.activeSlot || 'question';
     const reader = new FileReader();
 
     reader.onload = (e) => {
@@ -588,26 +716,11 @@ class ClipboardManager {
         return;
       }
 
-      // 슬롯에 저장하고 UI 성공 처리하는 함수
-      const applyToSlot = (finalUrl) => {
-        this.setSlotImage(slotName, finalUrl);
+      // 1. [핵심] 지연 없이 원본 데이터를 슬롯에 즉시 할당 (UI 즉각 반응 보장!)
+      this.setSlotImage(slot, rawDataUrl);
+      this.handleSlotAdvance(slot);
 
-        if (this.autoAdvance) {
-          if (slotName === 'question') {
-            this.setActiveSlot('solution');
-            this.showToast('✅ [문제] 등록 완료! ➡️ 이제 [풀이]를 붙여넣으세요.', 'success');
-          } else if (slotName === 'solution') {
-            this.setActiveSlot('answer');
-            this.showToast('✅ [풀이] 등록 완료! ➡️ 이제 [답]을 붙여넣으세요.', 'success');
-          } else if (slotName === 'answer') {
-            this.showToast('🎉 문제, 풀이, 답 3종 이미지 등록 완료!', 'success');
-          }
-        } else {
-          this.showToast(`✅ [${this.getSlotKoreanName(slotName)}] 등록 완료!`, 'success');
-        }
-      };
-
-      // 캔버스 압축 최적화 시도
+      // 2. 백그라운드에서 Canvas 압축/최적화 시도 (너비 1600 초과 또는 1.5MB 초과 시)
       try {
         const img = new Image();
         img.onload = () => {
@@ -616,8 +729,7 @@ class ClipboardManager {
             let width = img.width;
             let height = img.height;
 
-            // 너비가 1600 초과 또는 용량 2MB 초과 시 압축
-            if (width > MAX_WIDTH || rawDataUrl.length > 2 * 1024 * 1024) {
+            if (width > MAX_WIDTH || rawDataUrl.length > 1.5 * 1024 * 1024) {
               if (width > MAX_WIDTH) {
                 height = Math.round((height * MAX_WIDTH) / width);
                 width = MAX_WIDTH;
@@ -628,24 +740,19 @@ class ClipboardManager {
               const ctx = canvas.getContext('2d');
               ctx.drawImage(img, 0, 0, width, height);
               const compressedUrl = canvas.toDataURL('image/jpeg', 0.90);
-              applyToSlot(compressedUrl);
-            } else {
-              applyToSlot(rawDataUrl);
+              // 최적화된 용량으로 부드럽게 교체
+              this.setSlotImage(slot, compressedUrl);
             }
           } catch (canvasErr) {
-            // 캔버스 에러 시 원본 rawDataUrl로 안전하게 적용
-            applyToSlot(rawDataUrl);
+            // 캔버스 에러 시 이미 rawDataUrl이 등록되어 있으므로 무시
           }
         };
 
-        // 이미지 로드 실패 시에도 절대 에러 띄우지 않고 rawDataUrl 그대로 적용 (절대 실패 방지)
-        img.onerror = () => {
-          applyToSlot(rawDataUrl);
-        };
-
+        // 이미지 로드 실패 시에도 이미 rawDataUrl이 등록되어 있으므로 안전
+        img.onerror = () => {};
         img.src = rawDataUrl;
       } catch (err) {
-        applyToSlot(rawDataUrl);
+        // 무시
       }
     };
 
@@ -653,8 +760,8 @@ class ClipboardManager {
       // FileReader 실패 시 URL.createObjectURL로 최후의 수단 복구
       try {
         const blobUrl = URL.createObjectURL(file);
-        this.setSlotImage(slotName, blobUrl);
-        this.showToast(`✅ [${this.getSlotKoreanName(slotName)}] 등록 완료!`, 'success');
+        this.setSlotImage(slot, blobUrl);
+        this.handleSlotAdvance(slot);
       } catch (blobErr) {
         this.showToast('⚠️ 파일을 읽는 도중 오류가 발생했습니다. 다시 캡처해 주세요.', 'error');
       }
@@ -1817,34 +1924,47 @@ class SKCTApp {
   }
 
   async saveNewQuestion() {
-    if (!this.clipboardMgr.slots.question) {
-      alert('문제 이미지를 최소 1장 붙여넣어 주세요! (Ctrl+V)');
-      return;
+    try {
+      if (!this.clipboardMgr.slots.question) {
+        this.clipboardMgr.showToast('⚠️ 문제 이미지를 최소 1장 붙여넣어 주세요! (Ctrl+V)', 'warning');
+        this.clipboardMgr.setActiveSlot('question');
+        return;
+      }
+
+      this.btnSaveQuestion.disabled = true;
+      this.btnSaveQuestion.textContent = '⏳ 저장 중...';
+
+      const tags = this.inputTags.value
+        .split(',')
+        .map(t => t.trim().replace(/^#/, ''))
+        .filter(t => t.length > 0);
+
+      const questionData = {
+        id: 'q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        area: this.selectModalArea.value,
+        subtype: this.selectModalSubtype.value || '',
+        mistakeReason: this.inputMistakeReason.value.trim(),
+        memo: this.inputMemo.value.trim(),
+        tags: tags,
+        isResolved: false,
+        questionImg: this.clipboardMgr.slots.question,
+        solutionImg: this.clipboardMgr.slots.solution,
+        answerImg: this.clipboardMgr.slots.answer,
+        createdAt: Date.now()
+      };
+
+      await dbService.saveQuestion(questionData);
+      this.closeQuestionModal();
+      this.clipboardMgr.showToast('🎉 오답 문제가 성공적으로 등록되었습니다!', 'success');
+      await this.render();
+    } catch (err) {
+      console.error('saveNewQuestion error:', err);
+      alert('오답 문제를 저장하는 도중 오류가 발생했습니다: ' + (err.message || err));
+    } finally {
+      this.btnSaveQuestion.disabled = false;
+      this.btnSaveQuestion.textContent = '💾 오답 문제 저장하기';
+      this.checkSaveButtonState();
     }
-
-    const tags = this.inputTags.value
-      .split(',')
-      .map(t => t.trim().replace(/^#/, ''))
-      .filter(t => t.length > 0);
-
-    const questionData = {
-      id: 'q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-      area: this.selectModalArea.value,
-      subtype: this.selectModalSubtype.value || '',
-      mistakeReason: this.inputMistakeReason.value.trim(),
-      memo: this.inputMemo.value.trim(),
-      tags: tags,
-      isResolved: false,
-      questionImg: this.clipboardMgr.slots.question,
-      solutionImg: this.clipboardMgr.slots.solution,
-      answerImg: this.clipboardMgr.slots.answer,
-      createdAt: Date.now()
-    };
-
-    await dbService.saveQuestion(questionData);
-    this.closeQuestionModal();
-    this.clipboardMgr.showToast('🎉 오답 문제가 성공적으로 등록되었습니다!', 'success');
-    await this.render();
   }
 
   initDetailModal() {

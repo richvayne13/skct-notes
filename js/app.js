@@ -896,34 +896,47 @@ class SKCTApp {
   }
 
   async saveNewQuestion() {
-    if (!this.clipboardMgr.slots.question) {
-      alert('문제 이미지를 최소 1장 붙여넣어 주세요! (Ctrl+V)');
-      return;
+    try {
+      if (!this.clipboardMgr.slots.question) {
+        this.clipboardMgr.showToast('⚠️ 문제 이미지를 최소 1장 붙여넣어 주세요! (Ctrl+V)', 'warning');
+        this.clipboardMgr.setActiveSlot('question');
+        return;
+      }
+
+      this.btnSaveQuestion.disabled = true;
+      this.btnSaveQuestion.textContent = '⏳ 저장 중...';
+
+      const tags = this.inputTags.value
+        .split(',')
+        .map(t => t.trim().replace(/^#/, ''))
+        .filter(t => t.length > 0);
+
+      const questionData = {
+        id: 'q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        area: this.selectModalArea.value,
+        subtype: this.selectModalSubtype.value || '',
+        mistakeReason: this.inputMistakeReason.value.trim(),
+        memo: this.inputMemo.value.trim(),
+        tags: tags,
+        isResolved: false,
+        questionImg: this.clipboardMgr.slots.question,
+        solutionImg: this.clipboardMgr.slots.solution,
+        answerImg: this.clipboardMgr.slots.answer,
+        createdAt: Date.now()
+      };
+
+      await dbService.saveQuestion(questionData);
+      this.closeQuestionModal();
+      this.clipboardMgr.showToast('🎉 오답 문제가 성공적으로 등록되었습니다!', 'success');
+      await this.render();
+    } catch (err) {
+      console.error('saveNewQuestion error:', err);
+      alert('오답 문제를 저장하는 도중 오류가 발생했습니다: ' + (err.message || err));
+    } finally {
+      this.btnSaveQuestion.disabled = false;
+      this.btnSaveQuestion.textContent = '💾 오답 문제 저장하기';
+      this.checkSaveButtonState();
     }
-
-    const tags = this.inputTags.value
-      .split(',')
-      .map(t => t.trim().replace(/^#/, ''))
-      .filter(t => t.length > 0);
-
-    const questionData = {
-      id: 'q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-      area: this.selectModalArea.value,
-      subtype: this.selectModalSubtype.value || '',
-      mistakeReason: this.inputMistakeReason.value.trim(),
-      memo: this.inputMemo.value.trim(),
-      tags: tags,
-      isResolved: false,
-      questionImg: this.clipboardMgr.slots.question,
-      solutionImg: this.clipboardMgr.slots.solution,
-      answerImg: this.clipboardMgr.slots.answer,
-      createdAt: Date.now()
-    };
-
-    await dbService.saveQuestion(questionData);
-    this.closeQuestionModal();
-    this.clipboardMgr.showToast('🎉 오답 문제가 성공적으로 등록되었습니다!', 'success');
-    await this.render();
   }
 
   initDetailModal() {
