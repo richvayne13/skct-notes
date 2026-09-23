@@ -219,10 +219,11 @@ class SKCTApp {
                   • 전체 세부유형
                 </button>
               </div>
-              ${area.subtypes.map(st => `
-                <div class="subtype-item-wrapper ${this.currentSubtype === st && isSelected ? 'active' : ''}">
+              ${area.subtypes.map((st, sIdx) => `
+                <div class="subtype-item-wrapper draggable ${this.currentSubtype === st && isSelected ? 'active' : ''}" draggable="true" data-area-id="${area.id}" data-sub-idx="${sIdx}" data-subtype="${this.escapeHtml(st)}">
+                  <span class="drag-handle-sidebar" title="마우스로 드래그하여 순서 변경">☰</span>
                   <button class="subtype-item ${this.currentSubtype === st && isSelected ? 'active' : ''}" data-subtype="${this.escapeHtml(st)}">
-                    • ${this.escapeHtml(st)}
+                    ${this.escapeHtml(st)}
                   </button>
                   <button type="button" class="btn-edit-subtype-sidebar" data-area-id="${area.id}" data-subtype="${this.escapeHtml(st)}" title="'${this.escapeHtml(cleanSubtypeName(st))}' 세부유형 제목 수정">
                     ✏️
@@ -274,6 +275,117 @@ class SKCTApp {
         }
       });
     });
+
+    // 사이드바 세부유형 드래그 앤 드롭 순서 변경 이벤트
+    let draggedAreaId = null;
+    let draggedSubIdx = null;
+
+    this.sidebarCategoriesEl.querySelectorAll('.subtype-item-wrapper.draggable').forEach(wrapper => {
+      wrapper.addEventListener('dragstart', (e) => {
+        draggedAreaId = wrapper.dataset.areaId;
+        draggedSubIdx = parseInt(wrapper.dataset.subIdx, 10);
+        wrapper.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(draggedSubIdx));
+      });
+
+      wrapper.addEventListener('dragend', () => {
+        wrapper.classList.remove('dragging');
+        this.sidebarCategoriesEl.querySelectorAll('.subtype-item-wrapper').forEach(el => {
+          el.classList.remove('drag-over');
+        });
+      });
+
+      wrapper.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (wrapper.dataset.areaId === draggedAreaId) {
+          wrapper.classList.add('drag-over');
+        }
+      });
+
+      wrapper.addEventListener('dragleave', () => {
+        wrapper.classList.remove('drag-over');
+      });
+
+      wrapper.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        wrapper.classList.remove('drag-over');
+        const targetAreaId = wrapper.dataset.areaId;
+        const targetSubIdx = parseInt(wrapper.dataset.subIdx, 10);
+
+        if (draggedAreaId === targetAreaId && draggedSubIdx !== null && draggedSubIdx !== targetSubIdx) {
+          const success = await this.reorderSubtypes(targetAreaId, draggedSubIdx, targetSubIdx);
+          if (success) {
+            this.clipboardMgr.showToast('↕️ 세부유형 순서가 성공적으로 변경되었습니다!', 'success');
+            this.renderSidebar();
+            await this.render();
+          }
+        }
+      });
+    });
+  }
+
+  // 세부유형 순서 변경 및 기존 문제 자동 동기화
+  async reorderSubtypes(areaId, fromIdx, toIdx) {
+    if (fromIdx === toIdx) return false;
+
+    const customAreas = getCustomAreas();
+    const area = customAreas.find(a => a.id === areaId);
+    if (!area || !area.subtypes) return false;
+
+    const list = area.subtypes;
+    if (fromIdx < 0 || fromIdx >= list.length || toIdx < 0 || toIdx >= list.length) return false;
+
+    const oldList = [...list];
+
+    // 요소 이동
+    const [moved] = list.splice(fromIdx, 1);
+    list.splice(toIdx, 0, moved);
+
+    // 새 번호(1. 2. 3...)로 자동 재매김
+    const renamePairs = [];
+    area.subtypes = list.map((st, idx) => {
+      const clean = cleanSubtypeName(st);
+      const formatted = `${idx + 1}. ${clean}`;
+      return formatted;
+    });
+
+    // 변경된 이름 쌍 수집
+    oldList.forEach(oldSt => {
+      const clean = cleanSubtypeName(oldSt);
+      const newSt = area.subtypes.find(s => cleanSubtypeName(s) === clean);
+      if (newSt && newSt !== oldSt) {
+        renamePairs.push({ oldName: oldSt, newName: newSt });
+      }
+    });
+
+    saveCustomAreas(customAreas);
+
+    // 기존 문항들의 세부유형 명칭도 새 번호로 자동 동기화
+    if (renamePairs.length > 0) {
+      const allQuestions = await dbService.getAllQuestions();
+      for (const q of allQuestions) {
+        if (q.area === areaId && q.subtype) {
+          const pair = renamePairs.find(p => p.oldName === q.subtype || cleanSubtypeName(p.oldName) === cleanSubtypeName(q.subtype));
+          if (pair) {
+            q.subtype = pair.newName;
+            await dbService.saveQuestion(q);
+          }
+        }
+      }
+    }
+
+    // 현재 선택된 세부유형 갱신
+    if (this.currentSubtype && this.currentSubtype !== 'all') {
+      const currentClean = cleanSubtypeName(this.currentSubtype);
+      const matched = area.subtypes.find(s => cleanSubtypeName(s) === currentClean);
+      if (matched) {
+        this.currentSubtype = matched;
+      }
+    }
+
+    return true;
   }
 
   async renameSubtype(areaId, oldSubtype, newSubtypeRaw) {
@@ -454,12 +566,19 @@ class SKCTApp {
     let draggedSubIdx = null;
 
     this.manageAreasList.querySelectorAll('.manage-subtype-item').forEach(item => {
+      const input = item.querySelector('.subtype-input');
+      if (input) {
+        input.addEventListener('focus', () => item.setAttribute('draggable', 'false'));
+        input.addEventListener('blur', () => item.setAttribute('draggable', 'true'));
+      }
+
       item.addEventListener('dragstart', (e) => {
         draggedItem = item;
         draggedAreaIdx = parseInt(item.dataset.areaIdx, 10);
         draggedSubIdx = parseInt(item.dataset.subIdx, 10);
         item.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(draggedSubIdx));
       });
 
       item.addEventListener('dragend', () => {

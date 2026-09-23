@@ -348,6 +348,41 @@ body {
   transform: scale(1.15);
 }
 
+/* 사이드바 세부유형 드래그 앤 드롭 스타일 */
+.subtype-item-wrapper.draggable {
+  cursor: grab;
+}
+
+.subtype-item-wrapper.draggable:active {
+  cursor: grabbing;
+}
+
+.subtype-item-wrapper .drag-handle-sidebar {
+  color: var(--text-sub);
+  font-size: 0.78rem;
+  padding: 0 2px 0 6px;
+  cursor: grab;
+  opacity: 0.3;
+  transition: opacity 0.15s, color 0.15s;
+  user-select: none;
+}
+
+.subtype-item-wrapper:hover .drag-handle-sidebar {
+  opacity: 0.9;
+  color: var(--color-primary);
+}
+
+.subtype-item-wrapper.dragging {
+  opacity: 0.35;
+  border: 1.5px dashed var(--color-primary);
+  background: rgba(255, 90, 31, 0.1);
+}
+
+.subtype-item-wrapper.drag-over {
+  border-top: 2px solid var(--color-primary);
+  background: rgba(255, 90, 31, 0.15);
+}
+
 .btn-header-edit-subtype {
   display: inline-flex;
   align-items: center;
