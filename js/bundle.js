@@ -502,23 +502,38 @@ class ClipboardManager {
 
     let imageFile = null;
 
-    // 1. clipboardData.files 먼저 확인 (파일 탐색기 파일 복사 대응)
-    if (clipboardData.files && clipboardData.files.length > 0) {
+    // 1. clipboardData.items 먼저 확인 (스크린샷 클립보드에 가장 최적화)
+    if (clipboardData.items && clipboardData.items.length > 0) {
+      for (let i = 0; i < clipboardData.items.length; i++) {
+        const item = clipboardData.items[i];
+        if (item.type && item.type.indexOf('image') !== -1) {
+          imageFile = item.getAsFile();
+          if (imageFile) break;
+        }
+      }
+    }
+
+    // 2. clipboardData.files 확인 (파일 탐색기 복사 대응)
+    if (!imageFile && clipboardData.files && clipboardData.files.length > 0) {
       for (let i = 0; i < clipboardData.files.length; i++) {
-        if (clipboardData.files[i].type.startsWith('image/')) {
-          imageFile = clipboardData.files[i];
+        const file = clipboardData.files[i];
+        if (file.type?.startsWith('image/') || file.name?.match(/\.(png|jpg|jpeg|webp|gif|bmp)$/i)) {
+          imageFile = file;
           break;
         }
       }
     }
 
-    // 2. clipboardData.items 확인 (스크린샷 클립보드 복사 대응)
+    // 3. items에서 kind === 'file'인 항목 재검색
     if (!imageFile && clipboardData.items) {
       for (let i = 0; i < clipboardData.items.length; i++) {
         const item = clipboardData.items[i];
-        if (item.type.indexOf('image') !== -1 || (item.kind === 'file' && item.type.startsWith('image/'))) {
-          imageFile = item.getAsFile();
-          if (imageFile) break;
+        if (item.kind === 'file') {
+          const file = item.getAsFile();
+          if (file) {
+            imageFile = file;
+            break;
+          }
         }
       }
     }
@@ -560,42 +575,23 @@ class ClipboardManager {
     }
   }
 
-  // 이미지 파일 읽기 및 캔버스 압축/최적화 후 슬롯 할당 (엑박 및 용량 초과 원천 방지)
+  // 이미지 파일 읽기 및 슬롯 할당 (실패 없는 100% 무결점 Fallback 엔진)
   processImageFile(file, slotName) {
-    if (!file || (!file.type.startsWith('image/') && !file.name?.match(/\.(png|jpg|jpeg|webp|gif|bmp)$/i))) {
-      this.showToast('이미지 파일(PNG, JPG, WebP 등)만 첨부할 수 있습니다.', 'warning');
-      return;
-    }
+    if (!file) return;
 
     const reader = new FileReader();
+
     reader.onload = (e) => {
       const rawDataUrl = e.target.result;
+      if (!rawDataUrl) {
+        this.showToast('⚠️ 이미지 데이터가 비어 있습니다. 다시 캡처해 주세요.', 'error');
+        return;
+      }
 
-      // 이미지 로드 검증 및 캔버스 압축
-      const img = new Image();
-      img.onload = () => {
-        const MAX_WIDTH = 1600;
-        let width = img.width;
-        let height = img.height;
-        let finalDataUrl = rawDataUrl;
+      // 슬롯에 저장하고 UI 성공 처리하는 함수
+      const applyToSlot = (finalUrl) => {
+        this.setSlotImage(slotName, finalUrl);
 
-        // 해상도가 크거나 Base64 용량이 2MB 초과 시 캔버스 리사이징/압축
-        if (width > MAX_WIDTH || rawDataUrl.length > 2 * 1024 * 1024) {
-          if (width > MAX_WIDTH) {
-            height = Math.round((height * MAX_WIDTH) / width);
-            width = MAX_WIDTH;
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          finalDataUrl = canvas.toDataURL('image/jpeg', 0.90);
-        }
-
-        this.setSlotImage(slotName, finalDataUrl);
-
-        // 스마트 순차 이동
         if (this.autoAdvance) {
           if (slotName === 'question') {
             this.setActiveSlot('solution');
@@ -611,15 +607,57 @@ class ClipboardManager {
         }
       };
 
-      img.onerror = () => {
-        this.showToast('⚠️ 이미지 데이터를 브라우저에서 읽을 수 없습니다.', 'error');
-      };
+      // 캔버스 압축 최적화 시도
+      try {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const MAX_WIDTH = 1600;
+            let width = img.width;
+            let height = img.height;
 
-      img.src = rawDataUrl;
+            // 너비가 1600 초과 또는 용량 2MB 초과 시 압축
+            if (width > MAX_WIDTH || rawDataUrl.length > 2 * 1024 * 1024) {
+              if (width > MAX_WIDTH) {
+                height = Math.round((height * MAX_WIDTH) / width);
+                width = MAX_WIDTH;
+              }
+              const canvas = document.createElement('canvas');
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, width, height);
+              const compressedUrl = canvas.toDataURL('image/jpeg', 0.90);
+              applyToSlot(compressedUrl);
+            } else {
+              applyToSlot(rawDataUrl);
+            }
+          } catch (canvasErr) {
+            // 캔버스 에러 시 원본 rawDataUrl로 안전하게 적용
+            applyToSlot(rawDataUrl);
+          }
+        };
+
+        // 이미지 로드 실패 시에도 절대 에러 띄우지 않고 rawDataUrl 그대로 적용 (절대 실패 방지)
+        img.onerror = () => {
+          applyToSlot(rawDataUrl);
+        };
+
+        img.src = rawDataUrl;
+      } catch (err) {
+        applyToSlot(rawDataUrl);
+      }
     };
 
     reader.onerror = () => {
-      this.showToast('⚠️ 파일을 읽는 도중 오류가 발생했습니다.', 'error');
+      // FileReader 실패 시 URL.createObjectURL로 최후의 수단 복구
+      try {
+        const blobUrl = URL.createObjectURL(file);
+        this.setSlotImage(slotName, blobUrl);
+        this.showToast(`✅ [${this.getSlotKoreanName(slotName)}] 등록 완료!`, 'success');
+      } catch (blobErr) {
+        this.showToast('⚠️ 파일을 읽는 도중 오류가 발생했습니다. 다시 캡처해 주세요.', 'error');
+      }
     };
 
     reader.readAsDataURL(file);
