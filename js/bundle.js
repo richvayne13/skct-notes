@@ -875,25 +875,26 @@ class SKCTApp {
   }
 
   async syncBongbongQuestions(confirmUser = false) {
-    const seed = window.SEED_QUESTIONS;
+    const seed = window.SEED_QUESTIONS || window.questionsSeedData;
     if (!seed || seed.length === 0) {
       this.clipboardMgr.showToast('시드 데이터 파일(questions_seed.js)을 불러올 수 없습니다.', 'warning');
       return;
     }
 
     if (confirmUser) {
-      if (!confirm(`봉봉TV 온라인 SKCT 문제집 170문항 전체(문제 및 해설)를 오답노트에 반영하시겠습니까?`)) {
+      if (!confirm(`봉봉TV 온라인 SKCT 문제집 279문항 전체(1:1 개별 문제 크롭 및 해설 매칭)를 오답노트에 반영하시겠습니까?`)) {
         return;
       }
     }
 
-    this.clipboardMgr.showToast(`⏳ 170개 문항을 등록하는 중입니다...`, 'info');
+    this.clipboardMgr.showToast(`⏳ ${seed.length}개 1:1 정밀 매칭 문항을 등록하는 중입니다...`, 'info');
 
     for (const q of seed) {
       await dbService.saveQuestion(q);
     }
 
-    this.clipboardMgr.showToast(`🎉 봉봉TV 170문항(문제·해설) 반영 완료!`, 'success');
+    localStorage.setItem('skct_seed_version_20260923_1to1_final_v6', 'v6_279_items_1to1');
+    this.clipboardMgr.showToast(`🎉 봉봉TV ${seed.length}문항(1:1 문제·해설·정답) 반영 완료!`, 'success');
     await this.render();
   }
 
@@ -1660,14 +1661,19 @@ class SKCTApp {
   }
 
   async seedInitialDataIfEmpty() {
+    const SEED_VERSION_KEY = 'skct_seed_version_20260923_1to1_final_v6';
+    const savedVersion = localStorage.getItem(SEED_VERSION_KEY);
+    const seed = window.SEED_QUESTIONS || window.questionsSeedData || [];
     const existing = await dbService.getAllQuestions();
     const existingNotes = await dbService.getAllNotes();
 
-    // 1. 봉봉TV 170제 시드 자동 적재 (문제가 아직 없거나 3개 미만인 경우)
-    if (existing.length < 10 && window.SEED_QUESTIONS && window.SEED_QUESTIONS.length > 0) {
-      for (const q of window.SEED_QUESTIONS) {
+    // 1. 봉봉TV 279제 1:1 정밀 매칭 시드 자동 적재 및 마이그레이션
+    if (seed.length > 0 && (savedVersion !== 'v6_279_items_1to1' || existing.length < 200)) {
+      console.log('새 1:1 정밀 매칭 279문항 데이터베이스 자동 적재 중...');
+      for (const q of seed) {
         await dbService.saveQuestion(q);
       }
+      localStorage.setItem(SEED_VERSION_KEY, 'v6_279_items_1to1');
     }
 
     // 2. 줄글 공식 메모장 초기 시드
