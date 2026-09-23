@@ -93,11 +93,15 @@ class SKCTApp {
       });
     }
 
-    // 봉봉TV 170제 동기화 버튼
-    const btnLoadBongbong = document.getElementById('btnLoadBongbongData');
-    if (btnLoadBongbong) {
-      btnLoadBongbong.addEventListener('click', async () => {
-        await this.syncBongbongQuestions(true);
+    // 전체 문제 비우기 버튼
+    const btnClearAll = document.getElementById('btnClearAllQuestions') || document.getElementById('btnLoadBongbongData');
+    if (btnClearAll) {
+      btnClearAll.addEventListener('click', async () => {
+        if (confirm('등록된 모든 오답 문제를 삭제하고 빈 상태로 초기화하시겠습니까?\n(새로운 문제를 직접 등록하실 수 있도록 깨끗하게 비워집니다.)')) {
+          await dbService.clearQuestions();
+          this.clipboardMgr.showToast('🗑️ 모든 문제가 삭제되어 빈 상태로 초기화되었습니다.', 'info');
+          await this.render();
+        }
       });
     }
 
@@ -481,16 +485,16 @@ class SKCTApp {
     if (filtered.length === 0) {
       this.questionsGridEl.innerHTML = `
         <div class="empty-state">
-          <div class="empty-icon">🎯</div>
+          <div class="empty-icon">📷</div>
           <h3>등록된 오답 문제가 없습니다</h3>
-          <p>상단의 <strong>[📚 봉봉TV 170제 동기화]</strong> 버튼을 누르거나, <strong>Ctrl + V</strong>로 새 문제를 등록해 보세요!</p>
-          <button class="btn btn-primary btn-add-q-inline">
-            <span class="btn-icon">📚</span> 봉봉TV 170문항 불러오기
+          <p>화면을 캡처한 후 아래 버튼을 누르거나, <strong>Ctrl + V</strong>로 쉽게 새 문제를 등록해 보세요!</p>
+          <button class="btn btn-vivid-gradient btn-add-q-inline" style="margin-top: 16px;">
+            <span class="btn-icon">📷</span> + 새 문제 캡처 등록 (Ctrl+V)
           </button>
         </div>
       `;
       const btn = this.questionsGridEl.querySelector('.btn-add-q-inline');
-      if (btn) btn.addEventListener('click', () => this.syncBongbongQuestions(true));
+      if (btn) btn.addEventListener('click', () => this.openQuestionModal());
       return;
     }
 
@@ -922,20 +926,15 @@ class SKCTApp {
   }
 
   async seedInitialDataIfEmpty() {
-    const SEED_VERSION_KEY = 'skct_seed_version_20260923_1to1_final_v6';
-    const savedVersion = localStorage.getItem(SEED_VERSION_KEY);
-    const seed = window.SEED_QUESTIONS || window.questionsSeedData || [];
-    const existing = await dbService.getAllQuestions();
+    const CLEAN_SLATE_KEY = 'skct_clean_slate_user_fresh_v8';
+    const hasCleaned = localStorage.getItem(CLEAN_SLATE_KEY);
     const existingNotes = await dbService.getAllNotes();
 
-    // 1. 봉봉TV 279제 1:1 정밀 매칭 시드 자동 적재 및 마이그레이션 (기존 불일치 캐시 클린 초기화)
-    if (seed.length > 0 && (savedVersion !== 'v7_279_items_clean' || existing.length < 200)) {
-      console.log('새 1:1 정밀 매칭 279문항 데이터베이스 자동 적재 중...');
+    // 사용자의 "문제, 풀이 싹 지워줘 내가 새로 업로드할게" 요청에 따라 기존 문제 전면 초기화
+    if (!hasCleaned) {
+      console.log('사용자 요청: 모든 기존 문제를 깨끗하게 초기화합니다 (Clean Slate).');
       await dbService.clearQuestions();
-      for (const q of seed) {
-        await dbService.saveQuestion(q);
-      }
-      localStorage.setItem(SEED_VERSION_KEY, 'v7_279_items_clean');
+      localStorage.setItem(CLEAN_SLATE_KEY, 'cleared');
     }
 
     // 2. 줄글 공식 메모장 초기 시드
