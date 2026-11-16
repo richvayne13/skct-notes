@@ -604,9 +604,24 @@
 
         /* Responsive */
         @media (max-width: 768px) {
-            h1 { font-size: 1.6rem; }
-            .stats-grid { grid-template-columns: 1fr 1fr; }
-            .tabs-wrapper { justify-content: flex-start; }
+            header { padding: 32px 16px; }
+            h1 { font-size: 1.45rem; word-break: keep-all; line-height: 1.35; }
+            .header-desc { font-size: 0.9rem; }
+            .main-container { padding: 0 12px 60px 12px; }
+            .stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+            .stat-card { padding: 14px; }
+            .stat-value { font-size: 1.6rem; }
+            .tabs-wrapper { justify-content: flex-start; padding: 8px 4px; gap: 6px; -webkit-overflow-scrolling: touch; }
+            .tab-btn { font-size: 0.85rem; padding: 7px 12px; white-space: nowrap; flex-shrink: 0; }
+            .problem-body { padding: 16px; }
+            .problem-header { padding: 12px 16px; flex-wrap: wrap; gap: 8px; }
+            .choice-item { padding: 10px 12px; font-size: 0.92rem; }
+            .explanation-box { padding: 14px; font-size: 0.92rem; }
+            .modal-content { max-width: 96vw; max-height: 85vh; }
+            .modal-close { top: 12px; right: 16px; font-size: 2.2rem; }
+        }
+        @media (max-width: 480px) {
+            .stats-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
